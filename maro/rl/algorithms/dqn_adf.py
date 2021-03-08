@@ -27,12 +27,10 @@ class DQN_ADF(AbsAlgorithm):
 
     def _apply_model(self, model, state):
         num_actions = len(state)
-        q_estimates = np.zeros(num_actions)
-        for i in range(num_actions):
-            action_id, state_features = state[i]
-            state_feat = torch.from_numpy(state_features.astype(np.float32)).to(self._device)
-            q_estimates[i] = self._get_q_values(model, state_feat, is_training=False)
-        return q_estimates
+        batched_state = np.stack([state_features for _, state_features in state])
+        tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self._device)
+        q_estimates = self._get_q_values(model, tensor_state, is_training=False)
+        return q_estimates.squeeze(1).cpu().numpy()
     
     def choose_action(self, state) -> Union[int, np.ndarray]:
         q_estimates = self._apply_model(self._model, state)
