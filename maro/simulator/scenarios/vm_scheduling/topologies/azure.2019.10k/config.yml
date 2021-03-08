@@ -25,7 +25,7 @@ MAX_UTILIZATION_RATE: 1
 
 PM:
   - PM_type: 0 # PM type is currently "int" only.
-    amount: 100
+    amount: 10
     CPU: 32
   # GPU: 0
     memory: 128
