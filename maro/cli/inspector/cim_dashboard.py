@@ -3,12 +3,12 @@
 
 import math
 import os
+from typing import List
 
 import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from typing import List
 
 import maro.cli.inspector.dashboard_helper as helper
 
@@ -71,8 +71,8 @@ def render_inter_view(source_path: str, epoch_num: int):
             data["capacity"],
             data["full"],
             data["empty"]
-            )
         )
+    )
     # Get formula and selected data.
     data_formula = helper.get_filtered_formula_and_data(GlobalScenarios.CIM, data, attribute_option_candidates)
     _generate_inter_view_panel(
@@ -102,8 +102,8 @@ def render_intra_view(source_path: str, epoch_num: int, prefix: str):
             data_ports["capacity"],
             data_ports["full"],
             data_ports["empty"]
-            )
         )
+    )
     # Basic data.
     ports_num = len(data_ports["name"].unique())
     ports_index = np.arange(ports_num).tolist()
@@ -193,7 +193,8 @@ def _render_intra_view_by_ports(
     sample_ratio = helper.get_sample_ratio_selection_list(snapshot_num)
     selected_snapshot_sample_ratio = st.sidebar.select_slider(
         label="Snapshot Sampling Ratio:",
-        options=sample_ratio
+        options=sample_ratio,
+        value=1
     )
     # Accumulated data.
     helper.render_h1_title("CIM Accumulated Data")
@@ -242,7 +243,8 @@ def _render_intra_view_by_snapshot(
     sample_ratio = helper.get_sample_ratio_selection_list(ports_num)
     selected_port_sample_ratio = st.sidebar.select_slider(
         label="Ports Sampling Ratio:",
-        options=sample_ratio
+        options=sample_ratio,
+        value=1
     )
     # Accumulated data.
     helper.render_h1_title("Accumulated Data")
@@ -506,12 +508,13 @@ def _generate_intra_panel_vessel(data_vessel: pd.DataFrame, snapshot_index: int,
     sample_ratio = helper.get_sample_ratio_selection_list(vessels_num)
     selected_vessel_sample_ratio = st.sidebar.select_slider(
         label="Vessels Sampling Ratio:",
-        options=sample_ratio
+        options=sample_ratio,
+        value=1
     )
     down_pooling_sample_list = helper.get_sample_index_list(vessels_num, selected_vessel_sample_ratio)
     data_vessel = data_vessel[
-            data_vessel["frame_index"] == snapshot_index
-        ][CIMItemOption.vessel_info].reset_index(drop=True)
+        data_vessel["frame_index"] == snapshot_index
+    ][CIMItemOption.vessel_info].reset_index(drop=True)
 
     data_rename = pd.DataFrame(columns=CIMItemOption.vessel_info)
     for index in down_pooling_sample_list:

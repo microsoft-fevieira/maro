@@ -132,3 +132,27 @@ cdef class BackendAbc:
 
     # Dump Snapshot into target folder (without filename).
     cdef void dump(self, str folder) except +
+
+    # Filter with input function.
+    cdef list where(self, NODE_INDEX index, ATTR_TYPE attr_type, filter_func: callable) except +
+
+    # Filter slots that greater than specified value.
+    cdef list slots_greater_than(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Filter slots that greater equal to specified value.
+    cdef list slots_greater_equal(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Filter slots that less than specified value.
+    cdef list slots_less_than(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Filter slots that less equal to specified value.
+    cdef list slots_less_equal(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Filter slots that equal to specified value.
+    cdef list slots_equal(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Filter slots that not equal to specified value.
+    cdef list slots_not_equal(self, NODE_INDEX index, ATTR_TYPE attr_type, object value) except +
+
+    # Get slot number for specified attribute, only support dynamic backend.
+    cdef SLOT_INDEX get_slot_number(self, NODE_INDEX index, ATTR_TYPE attr_type) except +

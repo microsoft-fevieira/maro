@@ -35,6 +35,8 @@ jobs:
       ##########################
       - name: Checkout Code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       ################################
       # Run Linter against code base #
@@ -45,6 +47,7 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_PYTHON_PYLINT: false # disable pylint, as we have not configure it
           VALIDATE_PYTHON_BLACK: false # same as above
+          VALIDATE_PYTHON_MYPY: false # same as above
           VALIDATE_JSCPD: false # Can not exclude specific file: https://github.com/kucherenko/jscpd/issues/215
           PYTHON_FLAKE8_CONFIG_FILE: tox.ini
           PYTHON_ISORT_CONFIG_FILE: tox.ini

@@ -2,12 +2,12 @@
 # Licensed under the MIT license.
 
 import os
+from typing import List
 
 import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from typing import List
 
 import maro.cli.inspector.dashboard_helper as helper
 
@@ -69,8 +69,8 @@ def render_inter_view(source_path: str, epoch_num: int):
     )
     # Generate data.
     data_summary = helper.read_detail_csv(
-            os.path.join(source_path, GlobalFileNames.stations_sum)
-        ).iloc[down_pooling_range]
+        os.path.join(source_path, GlobalFileNames.stations_sum)
+    ).iloc[down_pooling_range]
     # Get formula and selected data.
     data_formula = helper.get_filtered_formula_and_data(
         GlobalScenarios.CITI_BIKE, data_summary, attribute_option_candidates
@@ -229,7 +229,8 @@ def _generate_intra_view_by_snapshot(
     # Get sample rate (between 0-1).
     selected_station_sample_ratio = st.sidebar.select_slider(
         label="Station Sampling Ratio",
-        options=sample_ratio
+        options=sample_ratio,
+        value=1
     )
 
     # Get formula input and output.
@@ -292,7 +293,8 @@ def _generate_intra_view_by_station(
     snapshot_sample_ratio_list = helper.get_sample_ratio_selection_list(snapshot_num)
     selected_snapshot_sample_ratio = st.sidebar.select_slider(
         label="Snapshot Sampling Ratio:",
-        options=snapshot_sample_ratio_list
+        options=snapshot_sample_ratio_list,
+        value=1
     )
     # Get formula input and output.
     data_formula = helper.get_filtered_formula_and_data(
