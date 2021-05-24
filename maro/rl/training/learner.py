@@ -136,7 +136,9 @@ class OffPolicyLearner(AbsLearner):
                 for i in range(self.train_iter):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
-                    self.experience_pool.update(idx, {"loss": list(loss)})
+                    #self.experience_pool.update(idx, {"loss": list(loss)})
+                    #Temporarily turning off the ability to do prioritized replay.
+                    #ToDo: Check numpy to float conversion for proper update.
             else:
                 for agent_id, ex in exp.items():
                     # ensure new experiences are sampled with the highest priority
