@@ -7,6 +7,7 @@ from .agent_wrapper import MultiAgentWrapper
 from .ddpg import DDPG, DDPGConfig
 from .dqn import DQN, DQNConfig
 from .pg import PolicyGradient
+from .dqn_adf import DQN_ADF
 
 __all__ = [
     "AbsAgent",
@@ -14,5 +15,6 @@ __all__ = [
     "MultiAgentWrapper",
     "DDPG", "DDPGConfig",
     "DQN", "DQNConfig",
-    "PolicyGradient"
+    "PolicyGradient",
+    "DQN_ADF"
 ]

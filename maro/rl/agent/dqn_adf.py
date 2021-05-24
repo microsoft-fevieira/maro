@@ -6,81 +6,89 @@ from typing import Union
 import numpy as np
 import torch
 
-from maro.rl.models.learning_model import LearningModel
+from maro.rl.model import SimpleMultiHeadModel
 
-from .abs_algorithm import AbsAlgorithm
+from .abs_agent import AbsAgent
 from .dqn import DQNConfig
 
 
-class DQN_ADF(AbsAlgorithm):
+class DQN_ADF(AbsAgent):
     """DQN with action-dependent features
     
     Args:
-        model (LearningModel): Q-value model that takes a state-action pair and returns a number.
-        config: Configuration for DQN algorithm.
+        model (SimpleMultiHeadModel): Q-value model that takes a state-action pair and returns a number.
+        config: Configuration for DQN_ADF algorithm.
     """
-    def __init__(self, model: LearningModel, config: DQNConfig):
-        self.validate_task_names(model.task_names, {"state_value", "advantage"})
+    def __init__(self, model: SimpleMultiHeadModel, config: DQNConfig):
+        if (config.advantage_type is not None and
+                (model.task_names is None or set(model.task_names) != {"state_value", "advantage"})):
+            raise UnrecognizedTask(
+                f"Expected model task names 'state_value' and 'advantage' since dueling DQN is used, "
+                f"got {model.task_names}"
+            )
         super().__init__(model, config)
         self._training_counter = 0
-        self._target_model = model.copy() if model.is_trainable else None
-
-    def _apply_model(self, model, state):
-        num_actions = len(state)
-        batched_state = np.stack([state_features for _, state_features in state])
-        tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self._device)
-        q_estimates = self._get_q_values(model, tensor_state, is_training=False)
-        return q_estimates.squeeze(1).cpu().numpy()
+        self._target_model = model.copy() if model.trainable else None
     
     def choose_action(self, state) -> Union[int, np.ndarray]:
-        q_estimates = self._apply_model(self._model, state)
+        q_estimates = self._apply_model(state)
         num_actions = np.shape(q_estimates)[0]
         greedy_action = q_estimates.argmax()
         # No exploration
-        if self._config.epsilon == .0:
+        if self.config.epsilon == .0:
             return state[greedy_action][0]
-
-        return state[greedy_action][0] if np.random.random() > self._config.epsilon else state[np.random.choice(num_actions)][0]
-
-    def _get_q_values(self, model, state, is_training: bool = True):
-        if self._config.advantage_mode is not None:
-            output = model(state, is_training=is_training)
-            state_values = output["state_value"]
-            advantages = output["advantage"]
-            # Use mean or max correction to address the identifiability issue
-            corrections = advantages.mean(1) if self._config.advantage_mode == "mean" else advantages.max(1)[0]
-            q_values = state_values + advantages - corrections.unsqueeze(1)
-            return q_values
-        else:
-            return model(state, is_training=is_training)
-
-    def _get_next_q_values(self, current_q_values_for_all_actions, next_states):
-        next_q_values_for_all_actions = self._apply_model(self._target_model, next_states)
-        if self._config.is_double:
-            actions = current_q_values_for_all_actions.argmax()
-            return next_q_values_for_all_actions[actions]
-        else:
-            return next_q_values_for_all_actions.max()
+        return state[greedy_action][0] if np.random.random() > self.config.epsilon \
+            else state[np.random.choice(num_actions)][0]
 
     def _compute_td_errors(self, states, actions, rewards, next_states):
-        current_q_values_for_all_actions = self._apply_model(self._model, states)
+        current_q_values_for_all_actions = self._get_q_values(states)
         current_q_values = current_q_values_for_all_actions[actions]
-        next_q_values = self._get_next_q_values(current_q_values_for_all_actions, next_states)  # (N,)
-        target_q_values = (rewards + self._config.reward_discount * next_q_values).detach()  # (N,)
-        return self._config.loss_func(current_q_values, target_q_values)
+        next_q_values = self._get_next_q_values(next_states)  # (N,)
+        target_q_values = (rewards + self.config.reward_discount * next_q_values).detach()  # (N,)
+        return self.config.loss_func(current_q_values, target_q_values)
 
-    def train(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
-        #states = torch.from_numpy(states).to(self._device)
-        #actions = torch.from_numpy(actions).to(self._device)
-        #rewards = torch.from_numpy(rewards).to(self._device)
-        #next_states = torch.from_numpy(next_states).to(self._device)
+    def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
+        #states = torch.from_numpy(states).to(self.device)
+        #actions = torch.from_numpy(actions).to(self.device)
+        #rewards = torch.from_numpy(rewards).to(self.device)
+        #next_states = torch.from_numpy(next_states).to(self.device)
         loss = self._compute_td_errors(states, actions, rewards, next_states)
-        self._model.learn(loss.mean() if self._config.per_sample_td_error_enabled else loss)
+        self.model.step(loss.mean())
         self._training_counter += 1
-        if self._training_counter % self._config.target_update_frequency == 0:
-            self._target_model.soft_update(self._model, self._config.tau)
+        if self._training_counter % self.config.target_update_freq == 0:
+            self._target_model.soft_update(self.model, self.config.tau)
 
         return loss.detach().numpy()
 
     def set_exploration_params(self, epsilon):
-        self._config.epsilon = epsilon
+        if type(epsilon) is dict:
+            self.config.epsilon = epsilon["epsilon"]
+        else:
+            self.config.epsilon = epsilon
+
+    def _get_q_values(self, state, is_eval: bool = True, training: bool = True):
+        output = self.model(state, training=training) if is_eval else self._target_model(state, training=False)
+        if self.config.advantage_type is None:
+            return output
+        else:    
+            state_values = output["state_value"]
+            advantages = output["advantage"]
+            # Use mean or max correction to address the identifiability issue
+            corrections = advantages.mean(1) if self.config.advantage_type == "mean" else advantages.max(1)[0]
+            return state_values + advantages - corrections.unsqueeze(1)
+        
+    def _get_next_q_values(self, next_states):
+        next_q_values_for_all_actions = self._get_q_values(next_states, is_eval=False, training=False)
+        if self.config.double:
+            next_q_all_eval = self._get_q_values(next_states, training=False)
+            actions = next_q_all_eval.argmax()
+            return next_q_values_for_all_actions[actions]
+        else:
+            return next_q_values_for_all_actions.max()
+            
+    def _apply_model(self, state, is_eval: bool = True):
+        num_actions = len(state)
+        batched_state = np.stack([state_features for _, state_features in state])
+        tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
+        q_estimates = self._get_q_values(tensor_state, is_eval, training=False)
+        return q_estimates.squeeze(1).cpu().numpy()
