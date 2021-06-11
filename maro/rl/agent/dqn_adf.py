@@ -41,10 +41,10 @@ class DQN_ADF(AbsAgent):
             else state[np.random.choice(num_actions)][0]
 
     def _compute_td_errors(self, states, actions, rewards, next_states):
-        current_q_values_for_all_actions = self._apply_model(states, is_eval=True, training=True)
+        current_q_values_for_all_actions = self._batched_apply_model(states, is_eval=True, training=True)
         current_q_values = current_q_values_for_all_actions[actions]
         next_q_values = self._get_next_q_values(next_states)  # (N,)
-        target_q_values = (rewards + self.config.reward_discount * next_q_values).detach()
+        target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
         return self.config.loss_func(current_q_values, target_q_values)
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
@@ -54,9 +54,9 @@ class DQN_ADF(AbsAgent):
         #next_states = torch.from_numpy(next_states).to(self.device)
         
         #No support for minibatch yet
-        assert len(states) == 1, "DQN_ADF does not support minibatching. Set batch_size to 1."
+        # assert len(states) == 1, "DQN_ADF does not support minibatching. Set batch_size to 1."
         
-        loss = self._compute_td_errors(states[0], actions[0], rewards[0], next_states[0])
+        loss = self._compute_td_errors(states, actions, rewards, next_states)
         self.model.step(loss.mean())
         self._training_counter += 1
         if self._training_counter % self.config.target_update_freq == 0:
@@ -81,17 +81,37 @@ class DQN_ADF(AbsAgent):
             return state_values + advantages - corrections.unsqueeze(1)
         
     def _get_next_q_values(self, next_states):
-        next_q_values_for_all_actions = self._apply_model(next_states, is_eval=False, training=False)
+        next_q_values_for_all_actions = self._batched_apply_model(next_states, is_eval=False, training=False)
+
+        # Applies function f to subsets of q_values corresponding to states
+        def qmap(q_values, f):
+            ret = []
+            start_idx = 0
+            for state in next_states:
+                end_idx = start_idx + len(state)
+                ret.append(f(q_values[start_idx: end_idx]))
+                start_idx = end_idx
+            return ret
+
         if self.config.double:
-            next_q_all_eval = self._apply_model(next_states, is_eval=True, training=False)
-            actions = next_q_all_eval.argmax()
-            return next_q_values_for_all_actions[actions]
+            next_q_all_eval = self._batched_apply_model(next_states, is_eval=True, training=False)
+            actions = qmap(next_q_all_eval, torch.argmax)
+            # Argmax indexes into each state, add state offsets to index into the full array
+            state_offsets = np.cumsum([0] + [len(state) for state in next_states[:-1]])
+            return next_q_values_for_all_actions[state_offsets + actions]
         else:
-            return next_q_values_for_all_actions.max()
+            max_q_vals = qmap(next_q_values_for_all_actions, torch.max)
+            return torch.Tensor(max_q_vals).to(self.device)
             
     def _apply_model(self, state, is_eval: bool = True, training = False):
         num_actions = len(state)
         batched_state = np.stack([state_features for _, state_features in state])
+        tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
+        q_estimates = self._get_q_values(tensor_state, is_eval, training=training)
+        return q_estimates.squeeze(1)
+
+    def _batched_apply_model(self, states, is_eval: bool = True, training = False):
+        batched_state = np.stack([state_features for state in states for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         q_estimates = self._get_q_values(tensor_state, is_eval, training=training)
         return q_estimates.squeeze(1)
