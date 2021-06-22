@@ -2,7 +2,7 @@
 # Licensed under the MIT license.
 
 from maro.rl.agent import (
-    DDPG, DQN, DQN_ADF, AbsAgent, ActorCritic, ActorCriticConfig, DDPGConfig, DQNConfig, MultiAgentWrapper, PolicyGradient
+    DDPG, DQN, DQN_ADF, AbsAgent, ActorCritic, ActorCriticConfig, ActorCritic_ADF, DDPGConfig, DQNConfig, MultiAgentWrapper, PolicyGradient, PolicyGradient_ADF
 )
 from maro.rl.exploration import (
     AbsExplorer, EpsilonGreedyExplorer, GaussianNoiseExplorer, NoiseExplorer, UniformNoiseExplorer
@@ -17,8 +17,8 @@ from maro.rl.utils import (
 )
 
 __all__ = [
-    "AbsAgent", "ActorCritic", "ActorCriticConfig", "DDPG", "DDPGConfig", "DQN", "DQN_ADF", "DQNConfig", "MultiAgentWrapper",
-    "PolicyGradient",
+    "AbsAgent", "ActorCritic", "ActorCritic_ADF", "ActorCriticConfig", "DDPG", "DDPGConfig", "DQN", "DQN_ADF", "DQNConfig", "MultiAgentWrapper",
+    "PolicyGradient", "PolicyGradient_ADF",
     "AbsExplorer", "EpsilonGreedyExplorer", "GaussianNoiseExplorer", "NoiseExplorer", "UniformNoiseExplorer",
     "AbsBlock", "AbsCoreModel", "FullyConnectedBlock", "OptimOption", "SimpleMultiHeadModel",
     "LinearParameterScheduler", "Scheduler", "TwoPhaseLinearParameterScheduler",
