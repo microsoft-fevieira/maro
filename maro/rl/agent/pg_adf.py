@@ -57,11 +57,9 @@ class PolicyGradient_ADF(AbsAgent):
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
         batch_size = len(rewards)
-        print('learn step')
         rewards = torch.from_numpy(rewards).to(self.device)
         actions = torch.from_numpy(actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
                 # from the tuple containing (action, log_probability) pairs
-        print(actions)
         model_estimates = self._batched_apply_model(states, training=True)
             # apply the model to get the last-layer for all (s,a) pairs in the batch
         
@@ -80,13 +78,9 @@ class PolicyGradient_ADF(AbsAgent):
             mod[index, 0:len(state)] = model_estimates[start_idx:end_idx]
             index += 1
             start_idx = end_idx
-        print(mod)
         action_probs = torch.softmax(mod, dim=1) # taking softmax across each state
-        print(action_probs)
-        action_probs = action_probs.gather(1, actions.unsqueeze(0)).squeeze() # evaluating at sampled actions
-        print(action_probs)
+        action_probs = action_probs.gather(1, actions.unsqueeze(1)).squeeze() # evaluating at sampled actions
         loss = -(torch.log(action_probs)*rewards) # calculating final loss
-        print(loss)
         self.model.step(loss.mean()) # taking gradient step
         return loss.detach().numpy()
 
