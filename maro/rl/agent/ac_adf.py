@@ -28,7 +28,9 @@ class ActorCritic_ADF(AbsAgent):
             It may or may not have a shared bottom stack.
         config: Configuration for the AC algorithm.
     """
-    def __init__(self, model: SimpleMultiHeadModel, config: ActorCriticConfig):
+    def __init__(self, model: SimpleMultiHeadModel, config: ActorCriticConfig, lam):
+        self.lam = lam
+        self.eps = 1e-6
         if model.task_names is None or set(model.task_names) != {"actor", "critic"}:
             raise UnrecognizedTask(f"Expected model task names 'actor' and 'critic', but got {model.task_names}")
         super().__init__(model, config)
@@ -45,46 +47,50 @@ class ActorCritic_ADF(AbsAgent):
         Returns:
             Actions and corresponding log probabilities.
         """
+
+        num_actions = len(state)
+
+        if num_actions == 1:
+            action, prob = (0, 1)
+            return state[action][0], prob
+
+
         model_estimates = self._apply_model(state, task_name = "actor", training=False)
         num_actions = len(state)
         action_prob = Categorical(model_estimates)
-
-
         action = action_prob.sample()
-        log_p = action_prob.log_prob(action)
-        if num_actions > 1:
-            action, log_p = action.cpu().numpy()[0], log_p.cpu().numpy()[0]
-        else:
-            action, log_p = action.cpu().numpy(), log_p.cpu().numpy()
-        return (action, log_p)
+        prob = model_estimates[action]
+        action, prob = action.cpu().numpy(), prob.cpu().numpy()
+        return state[action][0], prob
 
-
-
-    def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
+    def learn(self, states, orig_actions: np.ndarray, rewards: np.ndarray, next_states):
         batch_size = len(rewards)
         rewards = torch.from_numpy(rewards).to(self.device)
-        actions = torch.from_numpy(actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
-                # from the tuple containing (action, log_probability) pairs
-        # model_estimates = self._batched_apply_model(states, training=True)
+        actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
+        old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device)
 
-        # model_estimates = self._batched_apply_mode
+                # from the tuple containing (action, log_probability) pairs
+
         state_values = self._get_state_values(states, training=False).detach()
         return_est = get_lambda_returns(
             rewards, state_values, self.config.reward_discount, self.config.lam, k=self.config.k
         )
         advantages = return_est - state_values
 
-        log_p = torch.log(self._get_softmax_prob(states, training=True).gather(1, actions.unsqueeze(1)).squeeze())
+        prob, _ = self._get_softmax_prob(states, training=True)
+        log_p = torch.log(prob.gather(1, actions.unsqueeze(1)).squeeze()+self.eps)
 
         for i in range(self.config.train_iters):
             # actor loss
-            log_p_new = torch.log(self._get_softmax_prob(states, training=True).gather(1, actions.unsqueeze(1)).squeeze())
+            new_prob, entropy = self._get_softmax_prob(states, training=True)
+            p_new = new_prob.gather(1, actions.unsqueeze(1)).squeeze()
+            log_p_new = torch.log(p_new+self.eps)
             if self.config.clip_ratio is not None:
                 ratio = torch.exp(log_p_new - log_p)
                 clip_ratio = torch.clamp(ratio, 1 - self.config.clip_ratio, 1 + self.config.clip_ratio)
-                actor_loss = -(torch.min(ratio * advantages, clip_ratio * advantages)).mean()
+                actor_loss = -(torch.div(p_new, old_probabilities+self.eps)*torch.min(ratio * advantages, clip_ratio * advantages) + self.lam * entropy).mean()
             else:
-                actor_loss = -(log_p_new * advantages).mean()
+                actor_loss = -(torch.div(p_new, old_probabilities+self.eps)*log_p_new * advantages + self.lam * entropy).mean()
 
             # critic_loss
             state_values = self._get_state_values(states, training=True)
@@ -97,8 +103,8 @@ class ActorCritic_ADF(AbsAgent):
         batched_state = np.stack([state_features for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         model_estimates = self.model(tensor_state, task_name = task_name, training = training)
-        model_estimates = torch.transpose(torch.div(torch.exp(model_estimates), torch.sum(torch.exp(model_estimates))),0,1)
-        return model_estimates.squeeze(1)
+        model_estimates = torch.transpose(torch.softmax(model_estimates, dim=0),0,1)
+        return model_estimates.squeeze()
 
     def _batched_apply_model(self, states, task_name = "actor", training = False):
         batched_state = np.stack([state_features for state in states for _, state_features in state])
@@ -120,15 +126,18 @@ class ActorCritic_ADF(AbsAgent):
         
         # initiating tensor w/ -infinity for padding, then updating subcomponents
         mod = torch.tensor((-1)*np.ones((batch_size, max_action)) * np.inf)
+        entropy = torch.tensor(np.ones(batch_size))
+
         start_idx = 0
         index = 0
         for state in states:
             end_idx = start_idx + len(state)
             mod[index, 0:len(state)] = model_estimates[start_idx:end_idx]
+            entropy[index] = 0 if len(state) == 1 else Categorical(self._apply_model(state, task_name = "actor", training=True)).entropy()
             index += 1
             start_idx = end_idx
         action_probs = torch.softmax(mod, dim=1) # taking softmax across each state
-        return action_probs
+        return action_probs, entropy
 
     def _get_state_values(self, states, training=False):
         batch_size = len(states)

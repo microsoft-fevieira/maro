@@ -51,11 +51,13 @@ components:
       pm:
         - pm_type: 0
           pm_amount: 10
+          # Modified from 10
   cluster:
     - type: 'JP1'
       rack:
         - rack_type: 'a'
-          rack_amount: 10
+          rack_amount: 8
+          # Modified from 10
 
 architecture:
   region:
