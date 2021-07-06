@@ -18,5 +18,7 @@ __all__ = [
     "DDPG", "DDPGConfig",
     "DQN", "DQNConfig",
     "PolicyGradient",
-    "DQN_ADF"
+    "DQN_ADF",
+    "PolicyGradient_ADF",
+    "ActorCritic_ADF"
 ]
