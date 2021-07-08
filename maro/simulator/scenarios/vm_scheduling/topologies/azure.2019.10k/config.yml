@@ -1,7 +1,8 @@
 # Initial buffer time budget.
 BUFFER_TIME_BUDGET: 0
 # The number of ticks to delay when agent decides not to assign VM.
-DELAY_DURATION: 1
+DELAY_DURATION: 0
+# Changed from 1
 # The number of the ticks per hour.
 TICKS_PER_HOUR: 12
 

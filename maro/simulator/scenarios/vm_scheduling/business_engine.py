@@ -700,7 +700,7 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
 
     def _postpone_vm_request(self, postpone_type: PostponeType, vm_id: int, remaining_buffer_time: int):
         """Postpone VM request."""
-        if remaining_buffer_time >= self._delay_duration:
+        if remaining_buffer_time >= self._delay_duration and self._delay_duration != 0:
             if postpone_type == PostponeType.Resource:
                 self._total_latency.due_to_resource += self._delay_duration
             elif postpone_type == PostponeType.Agent:

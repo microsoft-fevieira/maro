@@ -82,7 +82,7 @@ class PolicyGradient_ADF(AbsAgent):
                 entropy[index] = Categorical(probs = action_probs).entropy()
             index += 1
         loss = -(torch.div(mod, old_probabilities+self.eps)*torch.log(mod+self.eps)*rewards + self.lam*entropy) # calculating final loss
-        loss[torch.isnan(loss)] = 0
+        loss[torch.isnan(loss)] = 0 # do I need this any more? no. 
             # add an entropy regularizer of the softmax (could be good for exploration)
         self.model.step(loss.mean()) # taking gradient step
         self.learn_count += 1
