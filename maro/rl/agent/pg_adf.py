@@ -17,14 +17,17 @@ from .abs_agent import AbsAgent
 
 class PolicyGradient_ADF(AbsAgent):
     """The vanilla Policy Gradient (VPG) algorithm with action-dependent features, a.k.a., REINFORCE.
+    This algorithm is set-up for action dependent features, and the offline setting (handling distribution mismatch via importance weights)
+    and assumes that the 'reward' passed in the learn step takes into account the k_step returns.
 
     Reference: https://github.com/openai/spinningup/tree/master/spinup/algos/pytorch.
 
     Args:
         model (SimpleMultiHeadModel): Model that computes action distributions.
         reward_discount (float): Reward decay as defined in standard RL terminology.
+        lam (float): Parameter for entropy regularization, default is zero.
     """
-    def __init__(self, model: SimpleMultiHeadModel, reward_discount: float, lam):
+    def __init__(self, model: SimpleMultiHeadModel, reward_discount: float, lam: float = 0.0):
         self.lam = lam
         self.eps = 1e-6
         super().__init__(model, reward_discount)
@@ -36,69 +39,75 @@ class PolicyGradient_ADF(AbsAgent):
             state: Input to the actor model.
 
         Returns:
-            Actions and corresponding log probabilities.
+            Actions and corresponding probabilities.  NOTE: Different from MARO PG algorithm as we return the probability
+            instead of the log probability 
         """
-        self.learn_count = 0
-        num_actions = len(state)
 
-        if num_actions == 1:
+        num_actions = len(state)
+        if num_actions == 1: # Then select the first action guaranteed with probability 1
             action, prob = (0, 1)
             return state[action][0], prob
 
 
-        model_estimates = self._apply_model(state, training=False)
+        model_estimates = self._apply_model(state, training=False) # applies the model to get the probabilities
         num_actions = len(state)
-        action_prob = Categorical(model_estimates)
+        action_prob = Categorical(model_estimates) # set up the categorical distribution with those probabilities
 
 
-        action = action_prob.sample()
-        prob = model_estimates[action]
+        action = action_prob.sample() # sample from the probability
+        prob = model_estimates[action] # get the probability for action selected
         action, prob = action.cpu().numpy(), prob.cpu().numpy()
         return state[action][0], prob
 
+    # Exploration parameters currently not included.
     def set_exploration_params(self, epsilon):
         pass
 
 
 
     def learn(self, states, orig_actions: np.ndarray, rewards: np.ndarray, next_states):
+        """
+            Performs a learn step using the REINFORCE algorithm.
+            Note: Assumes that rewards instead contains some version of k-step returns
+            modeling the return of the trajectory needed in the updates.
+            Orig_actions is a 2-D numpy matrix where first component is action, second component 
+            is probability that action was selected
+        """
+
         batch_size = len(rewards)
-        rewards = torch.from_numpy(rewards).to(self.device)
+        # Note: Different from MARO implementation as we are not using cumulative reward
+        # but assuming that is done in the vm_trajectory
+        # returns = get_truncated_cumulative_reward(rewards, self.config)
+        returns = torch.from_numpy(rewards).to(self.device)
+
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device).detach()
                 # from the tuple containing (action, log_probability) pairs
         
-        # initiating tensor w/ -infinity for padding, then updating subcomponents
+        # initiating tensor and updating subcomponent
         mod = torch.tensor(np.ones(batch_size))
         entropy = torch.tensor(np.ones(batch_size))
         index = 0
         for state in states:
             if len(state) == 1:
-                mod[index] = 1
+                mod[index] = 1 # then the log probability and entropy calculations are off, so set it to be 1 so log is zero
                 entropy[index] = 0
             else:
-                action_probs = self._apply_model(state, training=True)
-                mod[index] = action_probs[actions[index]]
-                entropy[index] = Categorical(probs = action_probs).entropy()
+                action_probs = self._apply_model(state, training=True) # get current action probs
+                mod[index] = action_probs[actions[index]] # fill in probability of selected action
+                entropy[index] = Categorical(probs = action_probs).entropy() # calculate entropy
             index += 1
-        loss = -(torch.div(mod, old_probabilities+self.eps)*torch.log(mod+self.eps)*rewards + self.lam*entropy) # calculating final loss
-        loss[torch.isnan(loss)] = 0 # do I need this any more? no. 
+        loss = -(torch.div(mod, old_probabilities+self.eps)*torch.log(mod+self.eps)*returns + self.lam*entropy) # calculating final loss 
             # add an entropy regularizer of the softmax (could be good for exploration)
         self.model.step(loss.mean()) # taking gradient step
-        self.learn_count += 1
         return loss.detach().numpy()
 
 
-    def _apply_model(self, state, training = False):
+    def _apply_model(self, state, training = False): # Applies model to action dependent features
+        # and takes final layer as softmax over the model
         num_actions = len(state)
         batched_state = np.stack([state_features for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         model_estimates = self.model(tensor_state, training = training)
         model_estimates_softmax = torch.transpose(torch.softmax(model_estimates, dim=0),0,1).squeeze()
         return model_estimates_softmax
-
-    def _batched_apply_model(self, states, training = False):
-        batched_state = np.stack([state_features for state in states for _, state_features in state])
-        tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
-        model_estimates = self.model(tensor_state, training=training)
-        return model_estimates.squeeze(1)

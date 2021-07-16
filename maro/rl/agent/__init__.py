@@ -10,6 +10,7 @@ from .pg import PolicyGradient
 from .dqn_adf import DQN_ADF
 from .pg_adf import PolicyGradient_ADF
 from .ac_adf import ActorCritic_ADF
+from .mac_adf import MeanActorCritic_ADF
 
 __all__ = [
     "AbsAgent",
@@ -20,5 +21,6 @@ __all__ = [
     "PolicyGradient",
     "DQN_ADF",
     "PolicyGradient_ADF",
-    "ActorCritic_ADF"
+    "ActorCritic_ADF",
+    "MeanActorCritic_ADF"
 ]

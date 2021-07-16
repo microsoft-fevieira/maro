@@ -7,6 +7,8 @@ import numpy as np
 import torch
 
 from maro.rl.model import SimpleMultiHeadModel
+from maro.utils.exception.rl_toolkit_exception import UnrecognizedTask
+
 
 from .abs_agent import AbsAgent
 from .dqn import DQNConfig
@@ -32,34 +34,39 @@ class DQN_ADF(AbsAgent):
     
     def choose_action(self, state) -> Union[int, np.ndarray]:
         q_estimates = self._apply_model(state, is_eval=True, training=False).cpu().numpy()
+            # Obtain Q(s,a) estimates for each action characterized by the state
         num_actions = np.shape(q_estimates)[0]
         greedy_action = q_estimates.argmax()
+            # Determines the greedy action by taking argmax of the Q estimates
         # No exploration
         if self.config.epsilon == .0:
             return state[greedy_action][0]
+        # Otherwise sample uniformly from the set of actions based on the epsilon parameter
         return state[greedy_action][0] if np.random.random() > self.config.epsilon \
             else state[np.random.choice(num_actions)][0]
 
     def _compute_td_errors(self, states, actions, rewards, next_states):
+        # Compute the one step TD errors for a given (s,a,r,s') tuple
+
         current_q_values_for_all_actions = self._batched_apply_model(states, is_eval=True, training=True)
-        current_q_values = current_q_values_for_all_actions[actions]
+        # Get the Q values for all actions in the current batch states list
+
+        state_offsets = np.cumsum([0] + [len(state) for state in states[:-1]])
+        current_q_values = current_q_values_for_all_actions[state_offsets+actions]
+        # Evaluate it at the selected actions.  State_Offsets is used in order to deal w/ stacking
+
         next_q_values = self._get_next_q_values(next_states)  # (N,)
+        # Get the next Q values for the next_states
+
         target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
         return self.config.loss_func(current_q_values, target_q_values)
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
-        #states = torch.from_numpy(states).to(self.device)
-        #actions = torch.from_numpy(actions).to(self.device)
-        #rewards = torch.from_numpy(rewards).to(self.device)
-        #next_states = torch.from_numpy(next_states).to(self.device)
-        
-        #No support for minibatch yet
-        # assert len(states) == 1, "DQN_ADF does not support minibatching. Set batch_size to 1."
-        
+        # Compute the TD errors and take a step on the loss
         loss = self._compute_td_errors(states, actions, rewards, next_states)
         self.model.step(loss.mean())
         self._training_counter += 1
-        if self._training_counter % self.config.target_update_freq == 0:
+        if self._training_counter % self.config.target_update_freq == 0: # Soft updates of the target model
             self._target_model.soft_update(self.model, self.config.tau)
         return loss.detach().numpy()
 
