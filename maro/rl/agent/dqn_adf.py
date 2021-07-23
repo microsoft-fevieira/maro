@@ -45,7 +45,7 @@ class DQN_ADF(AbsAgent):
         return state[greedy_action][0] if np.random.random() > self.config.epsilon \
             else state[np.random.choice(num_actions)][0]
 
-    def _compute_td_errors(self, states, actions, rewards, next_states):
+    def _compute_td_errors(self, states, actions, rewards, next_states, discount_exponent):
         # Compute the one step TD errors for a given (s,a,r,s') tuple
 
         current_q_values_for_all_actions = self._batched_apply_model(states, is_eval=True, training=True)
@@ -58,12 +58,22 @@ class DQN_ADF(AbsAgent):
         next_q_values = self._get_next_q_values(next_states)  # (N,)
         # Get the next Q values for the next_states
 
-        target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
+        target_q_values = ((self.config.reward_discount**discount_exponent) * next_q_values + rewards).detach()
+        
         return self.config.loss_func(current_q_values, target_q_values)
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
         # Compute the TD errors and take a step on the loss
-        loss = self._compute_td_errors(states, actions, rewards, next_states)
+
+        old_ticks = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
+        next_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
+
+        
+        rewards = torch.from_numpy(rewards[:, 2].astype(np.float32)).to(self.device)
+
+        discount_exponent = next_ticks - old_ticks
+
+        loss = self._compute_td_errors(states, actions, rewards, next_states, discount_exponent)
         self.model.step(loss.mean())
         self._training_counter += 1
         if self._training_counter % self.config.target_update_freq == 0: # Soft updates of the target model

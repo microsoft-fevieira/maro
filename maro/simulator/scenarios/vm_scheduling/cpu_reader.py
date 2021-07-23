@@ -25,7 +25,10 @@ class CpuReader:
     def _switch_to_next_file_name(self, data_path) -> str:
         """Switch to next file name."""
         file_name = data_path.split("-")
-        file_name[2] = str(int(file_name[2]) + 1)
+        for i in range(len(file_name)):
+            if file_name[i].isnumeric():
+                file_name[i] = str(int(file_name[i])+1)
+        
         new_data_path = "-".join(file_name)
 
         return new_data_path

@@ -484,6 +484,7 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
             )
 
             if vm.vm_id not in cur_tick_cpu_utilization:
+                print(tick)
                 raise Exception(f"The VM id: '{vm.vm_id}' does not exist at this tick.")
 
             vm_info.add_utilization(cpu_utilization=cur_tick_cpu_utilization[vm.vm_id])
@@ -668,9 +669,9 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
         # TODO: Future features of overload modeling.
         #       1. Performance degradation
         #       2. Quiesce specific VMs.
+        # print(f'Overload PM: {pm_id}')
         pm: PhysicalMachine = self._machines[pm_id]
         vm_ids: List[int] = [vm_id for vm_id in pm.live_vms]
-
         if self._kill_all_vms_if_overload:
             for vm_id in vm_ids:
                 self._total_incomes -= self._live_vms[vm_id].get_income_till_now(tick)
@@ -717,6 +718,7 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
         else:
             # Fail
             # Pop out VM request payload.
+            # print(f'Failed Allocation: {vm_id}')
             self._pending_vm_request_payload.pop(vm_id)
             # Add failed allocation.
             self._failed_allocation += 1
@@ -787,6 +789,7 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
         """Release PM resource from the finished VM."""
         # Get the VM info.
         vm_id_list = []
+        # print(self._tick)
         for vm in self._live_vms.values():
             if vm.deletion_tick == self._tick:
                 # Release PM resources.
@@ -804,6 +807,7 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
 
         # Remove dead VM.
         for vm_id in vm_id_list:
+            # print(f'Finished VM: {vm_id}')
             self._live_vms.pop(vm_id)
 
     def _on_vm_required(self, vm_request_event: CascadeEvent):
@@ -870,6 +874,8 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
                 vm.pm_id = pm_id
                 vm.creation_tick = cur_tick
                 vm.deletion_tick = cur_tick + lifetime
+                # if vm_id == 233505:
+                    # print(f'Current tick: {cur_tick}, Creation tick: {vm.creation_tick}, Deletion tick: {vm.deletion_tick}')
                 vm.cpu_utilization = vm.get_utilization(cur_tick=cur_tick)
 
                 # Pop out the VM from pending requests and add to live VM dict.
