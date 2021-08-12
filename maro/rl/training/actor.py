@@ -9,6 +9,7 @@ from maro.communication import Message, Proxy
 from maro.rl.agent import AbsAgent, MultiAgentWrapper
 from maro.simulator import Env
 from maro.utils import Logger
+import numpy as np
 
 from .message_enums import MessageTag, PayloadKey
 
@@ -54,7 +55,17 @@ class Actor(object):
             self.agent.set_exploration_params(exploration_params)
 
         _, event, is_done = self.env.step(None)
-        while not is_done:
+
+
+        self.trajectory.roll_start = np.random.randint(288, (8638/2 - 288))
+        print(f'Rolling in with actor to: {self.trajectory.roll_start}')
+        # Steps through with the benchmark agent until the given roll start tick
+        while event.frame_index < self.trajectory.roll_start:
+            _, event, is_done = self.env.step(self.trajectory.benchmark_agent.allocate_vm(event, self.env))
+
+        # Swaps to using the actions selected by the algorithm and adds the observed (s,a,r,s') tuples to the
+        # experience buffer
+        while (not is_done and event.frame_index <= self.trajectory.roll_start + self.trajectory.roll_length):
             state_by_agent = self.trajectory.get_state(event)
             action_by_agent = self.agent.choose_action(state_by_agent)
             env_action = self.trajectory.get_action(action_by_agent, event)

@@ -737,28 +737,28 @@ class VmSchedulingBusinessEngine(AbsBusinessEngine):
         valid_pm_list = []
 
         # Delay-insensitive: 0, Interactive: 1, and Unknown: 2.
-        if vm_category == VmCategory.INTERACTIVE or vm_category == VmCategory.UNKNOWN:
-            valid_pm_list = self._get_valid_non_oversubscribable_pms(
+        # if vm_category == VmCategory.INTERACTIVE or vm_category == VmCategory.UNKNOWN:
+        valid_pm_list = self._get_valid_non_oversubscribable_pms(
                 vm_cpu_cores_requirement=vm_cpu_cores_requirement,
                 vm_memory_requirement=vm_memory_requirement
             )
-        else:
-            valid_pm_list = self._get_valid_oversubscribable_pms(
-                vm_cpu_cores_requirement=vm_cpu_cores_requirement,
-                vm_memory_requirement=vm_memory_requirement
-            )
+        # else:
+        #     valid_pm_list = self._get_valid_oversubscribable_pms(
+        #         vm_cpu_cores_requirement=vm_cpu_cores_requirement,
+        #         vm_memory_requirement=vm_memory_requirement
+        #     )
 
         return valid_pm_list
 
     def _get_valid_non_oversubscribable_pms(self, vm_cpu_cores_requirement: int, vm_memory_requirement: int) -> list:
         valid_pm_list = []
         for pm in self._machines:
-            if pm.oversubscribable == PmState.EMPTY or pm.oversubscribable == PmState.NON_OVERSUBSCRIBABLE:
+            # if pm.oversubscribable == PmState.EMPTY or pm.oversubscribable == PmState.NON_OVERSUBSCRIBABLE:
                 # In the condition of non-oversubscription, the valid PMs mean:
                 # PM allocated resource + VM allocated resource <= PM capacity.
-                if (pm.cpu_cores_allocated + vm_cpu_cores_requirement <= pm.cpu_cores_capacity
-                        and pm.memory_allocated + vm_memory_requirement <= pm.memory_capacity):
-                    valid_pm_list.append(pm.id)
+            if (pm.cpu_cores_allocated + vm_cpu_cores_requirement <= pm.cpu_cores_capacity
+                    and pm.memory_allocated + vm_memory_requirement <= pm.memory_capacity):
+                valid_pm_list.append(pm.id)
 
         return valid_pm_list
 
