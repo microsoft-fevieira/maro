@@ -1,8 +1,16 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-from .abs_explorer import AbsExplorer
-from .epsilon_greedy_explorer import EpsilonGreedyExplorer
-from .noise_explorer import GaussianNoiseExplorer, NoiseExplorer, UniformNoiseExplorer
+from .abs_exploration import AbsExploration, NullExploration
+from .discrete_space_exploration import DiscreteSpaceExploration, EpsilonGreedyExploration
+from .exploration_scheduler import (
+    AbsExplorationScheduler, LinearExplorationScheduler, MultiPhaseLinearExplorationScheduler
+)
+from .noise_exploration import GaussianNoiseExploration, NoiseExploration, UniformNoiseExploration
 
-__all__ = ["AbsExplorer", "EpsilonGreedyExplorer", "GaussianNoiseExplorer", "NoiseExplorer", "UniformNoiseExplorer"]
+__all__ = [
+    "AbsExploration", "NullExploration",
+    "DiscreteSpaceExploration", "EpsilonGreedyExploration",
+    "AbsExplorationScheduler", "LinearExplorationScheduler", "MultiPhaseLinearExplorationScheduler",
+    "GaussianNoiseExploration", "NoiseExploration", "UniformNoiseExploration"
+]

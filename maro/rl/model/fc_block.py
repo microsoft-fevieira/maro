@@ -2,14 +2,15 @@
 # Licensed under the MIT license.
 
 from collections import OrderedDict
+from typing import List
 
 import torch
 import torch.nn as nn
 
-from .abs_block import AbsBlock
+from maro.rl.utils import get_torch_activation_cls
 
 
-class FullyConnectedBlock(AbsBlock):
+class FullyConnectedBlock(nn.Module):
     """Fully connected network with optional batch normalization, activation and dropout components.
 
     Args:
@@ -17,7 +18,9 @@ class FullyConnectedBlock(AbsBlock):
         input_dim (int): Network input dimension.
         output_dim (int): Network output dimension.
         hidden_dims ([int]): Dimensions of hidden layers. Its length is the number of hidden layers.
-        activation: A ``torch.nn`` activation type. If None, there will be no activation. Defaults to LeakyReLU.
+        activation: A string indicatinfg an activation class provided by ``torch.nn`` or a custom activation class.
+            If it is a string, it must be a key in ``TORCH_ACTIVATION``. If None, there will be no activation.
+            Defaults to "relu".
         head (bool): If true, this block will be the top block of the full model and the top layer of this block
             will be the final output layer. Defaults to False.
         softmax (bool): If true, the output of the net will be a softmax transformation of the top layer's
@@ -33,8 +36,8 @@ class FullyConnectedBlock(AbsBlock):
         self,
         input_dim: int,
         output_dim: int,
-        hidden_dims: [int],
-        activation=nn.LeakyReLU,
+        hidden_dims: List[int],
+        activation="relu",
         head: bool = False,
         softmax: bool = False,
         batch_norm: bool = False,
@@ -49,7 +52,7 @@ class FullyConnectedBlock(AbsBlock):
         self._output_dim = output_dim
 
         # network features
-        self._activation = activation
+        self._activation = get_torch_activation_cls(activation)() if activation else None
         self._head = head
         self._softmax = nn.Softmax(dim=1) if softmax else None
         self._batch_norm = batch_norm
@@ -106,7 +109,7 @@ class FullyConnectedBlock(AbsBlock):
             components.append(("batch_norm", nn.BatchNorm1d(input_dim)))
         components.append(("linear", nn.Linear(input_dim, output_dim)))
         if not head and self._activation is not None:
-            components.append(("activation", self._activation()))
+            components.append(("activation", self._activation))
         if not head and self._dropout_p:
             components.append(("dropout", nn.Dropout(p=self._dropout_p)))
         return nn.Sequential(OrderedDict(components))
