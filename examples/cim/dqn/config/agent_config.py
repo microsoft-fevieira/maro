@@ -15,6 +15,11 @@ input_dim = (
     len(common_config["vessel_attributes"])
 )
 
+BATCH_SIZE = 64
+TRAIN_ITER = 10
+MAX_EPISODE = 100
+DISCOUNT_FACTOR = 0.9
+
 agent_config = {
     "model": {
         "input_dim": input_dim,
