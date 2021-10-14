@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 
 import torch
-
+import os
 from maro.rl.model import AbsCoreModel
 
 
@@ -81,4 +81,5 @@ class AbsAgent(ABC):
         Args:
             path (str): path to the directory where the models are saved.
         """
-        torch.save(self.model.state_dict(), path)
+        os.makedirs(path, exist_ok=True)
+        torch.save(self.model.state_dict(), path+'model.pt')

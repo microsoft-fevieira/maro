@@ -12,7 +12,7 @@ from maro.utils import Logger
 import numpy as np
 
 from .message_enums import MessageTag, PayloadKey
-
+DEBUG = True
 
 class Actor(object):
     """Actor class that performs roll-out tasks.
@@ -36,6 +36,45 @@ class Actor(object):
             trajectory_kwargs = {}
         self.trajectory = trajectory_cls(self.env, **trajectory_kwargs)
 
+
+
+    # def roll_out(self, index: int, training: bool = True, model_by_agent: dict = None, exploration_params=None):
+    #     """Perform one episode of roll-out.
+    #     Args:
+    #         index (int): Externally designated index to identify the roll-out round.
+    #         training (bool): If true, the roll-out is for training purposes, which usually means
+    #             some kind of training data, e.g., experiences, needs to be collected. Defaults to True.
+    #         model_by_agent (dict): Models to use for inference. Defaults to None.
+    #         exploration_params: Exploration parameters to use for the current roll-out. Defaults to None.
+    #     Returns:
+    #         Data collected during the episode.
+    #     """
+    #     self.env.reset()
+    #     self.trajectory.reset()
+    #     if model_by_agent:
+    #         self.agent.load_model(model_by_agent)
+    #     if exploration_params:
+    #         self.agent.set_exploration_params(exploration_params)
+
+    #     _, event, is_done = self.env.step(None)
+    #     print('starting roll out')
+    #     # Swaps to using the actions selected by the algorithm and adds the observed (s,a,r,s') tuples to the
+    #     # experience buffer
+    #     while not is_done:
+    #         state_by_agent = self.trajectory.get_state(event)
+    #         action_by_agent = self.agent.choose_action(state_by_agent)
+    #         env_action = self.trajectory.get_action(action_by_agent, event)
+    #         if len(env_action) == 1:
+    #             env_action = list(env_action.values())[0]
+    #         _, next_event, is_done = self.env.step(env_action)
+    #         reward = self.trajectory.get_reward()
+    #         self.trajectory.on_env_feedback(
+    #             event, state_by_agent, action_by_agent, reward if reward is not None else self.env.metrics
+    #         )
+    #         event = next_event
+    #     print('finished roll out')
+    #     return self.env.metrics, self.trajectory.on_finish() if training else None
+
     def roll_out(self, index: int, training: bool = True, model_by_agent: dict = None, exploration_params=None):
         """Perform one episode of roll-out.
         Args:
@@ -58,8 +97,8 @@ class Actor(object):
 
 
         self.trajectory.roll_start = np.random.randint(288, (8638/2 - 288))
-        print(f'Rolling in with actor to: {self.trajectory.roll_start}')
-        # Steps through with the benchmark agent until the given roll start tick
+        if DEBUG: print(f'Rolling in with actor to: {self.trajectory.roll_start}')
+        # # Steps through with the benchmark agent until the given roll start tick
         while event.frame_index < self.trajectory.roll_start:
             _, event, is_done = self.env.step(self.trajectory.benchmark_agent.allocate_vm(event, self.env))
 
@@ -77,7 +116,7 @@ class Actor(object):
                 event, state_by_agent, action_by_agent, reward if reward is not None else self.env.metrics
             )
             event = next_event
-
+        if DEBUG: print(f'Finished roll out with actor of length {self.trajectory.roll_length}')
         return self.env.metrics, self.trajectory.on_finish() if training else None
 
     def as_worker(self, group: str, proxy_options=None, log_dir: str = getcwd()):
@@ -101,12 +140,15 @@ class Actor(object):
             elif msg.tag == MessageTag.ROLLOUT:
                 ep = msg.payload[PayloadKey.ROLLOUT_INDEX]
                 logger.info(f"Rolling out ({ep})...")
+                print(f'Roll out: episode {ep} training: {msg.payload[PayloadKey.TRAINING]}')
                 metrics, rollout_data = self.roll_out(
                     ep,
                     training=msg.payload[PayloadKey.TRAINING],
                     model_by_agent=msg.payload[PayloadKey.MODEL],
                     exploration_params=msg.payload[PayloadKey.EXPLORATION_PARAMS]
                 )
+
+                print(f'Got rollout_data of type: {type(rollout_data)}')
                 if rollout_data is None:
                     logger.info(f"Roll-out {ep} aborted")
                 else:

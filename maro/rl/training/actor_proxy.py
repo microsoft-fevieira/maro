@@ -61,9 +61,11 @@ class ActorProxy(object):
         }
         self._proxy.iscatter(MessageTag.ROLLOUT, SessionType.TASK, [(actor, payload) for actor in self._actors])
         self.logger.info(f"Sent roll-out requests to {self._actors} for ep-{index}")
+        print(f"Sent roll-out requests to {self._actors} for ep-{index}")
 
         # Receive roll-out results from remote actors
         for msg in self._proxy.receive():
+            print('received roll-out results from the remote actors')
             if msg.payload[PayloadKey.ROLLOUT_INDEX] != index:
                 self.logger.info(
                     f"Ignore a message of type {msg.tag} with ep {msg.payload[PayloadKey.ROLLOUT_INDEX]} "

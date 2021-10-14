@@ -112,6 +112,7 @@ class OffPolicyLearner(AbsLearner):
         self.train_iter = train_iter
         self.min_experiences_to_train = min_experiences_to_train
         self.batch_size = batch_size
+        self.log_dir = log_dir
         self.prioritized_sampling_by_loss = prioritized_sampling_by_loss
 
     def run(self):
@@ -123,7 +124,8 @@ class OffPolicyLearner(AbsLearner):
                 exploration_params=exploration_params
             )
             self.logger.info(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
-
+            print(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
+            print(f'Single Source: {isinstance(self.actor, Actor)} Single Agent: {isinstance(self.agent, AbsAgent)}')
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
                 exp,
@@ -136,9 +138,7 @@ class OffPolicyLearner(AbsLearner):
                 for i in range(self.train_iter):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
-                    #self.experience_pool.update(idx, {"loss": list(loss)})
-                    #Temporarily turning off the ability to do prioritized replay.
-                    #ToDo: Check numpy to float conversion for proper update.
+                    self.experience_pool.update(idx, {"loss": list(loss)})
             else:
                 for agent_id, ex in exp.items():
                     # ensure new experiences are sampled with the highest priority
@@ -153,7 +153,10 @@ class OffPolicyLearner(AbsLearner):
                     for agent_id, loss in loss_by_agent.items():
                         self.experience_pool[agent_id].update(idx_by_agent[agent_id], {"loss": list(loss)})
 
+
             self.logger.info("Agent learning finished")
+        print(f'Saving model to: {self.log_dir}')
+        self.agent.dump_model_to_file(self.log_dir)
 
         # Signal remote actors to quit
         if isinstance(self.actor, ActorProxy):
