@@ -37,8 +37,8 @@ class ExperienceCollectionUtils:
                     for k, v in e.items():
                         merged[agent_id][k].extend(v)
         # print(merged)
-        # print(merged.keys())
-        # print(merged['A'])
+        print(merged.keys())
+        print(merged['A'])
         return merged
 
     @staticmethod

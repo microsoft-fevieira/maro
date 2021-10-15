@@ -132,12 +132,16 @@ class OffPolicyLearner(AbsLearner):
                 is_single_source=isinstance(self.actor, Actor),
                 is_single_agent=isinstance(self.agent, AbsAgent)
             )
+            print(f'Type of exp: {type(exp)}')
+            print(f'Length of exp: {len(exp)}')
+            print(f'Length of exp: {len(exp["A"])}')
             if isinstance(self.agent, AbsAgent):
                 exp.update({"loss": [MAX_LOSS] * len(list(exp.values())[0])})
                 self.experience_pool.put(exp)
                 for i in range(self.train_iter):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
+                    print(f'Returned loss to experience pool: {loss}')
                     self.experience_pool.update(idx, {"loss": list(loss)})
             else:
                 for agent_id, ex in exp.items():
