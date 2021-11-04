@@ -65,7 +65,6 @@ class DQN_ADF(AbsAgent):
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
         # Compute the TD errors and take a step on the loss
-
         old_ticks = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
         next_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
 

@@ -199,6 +199,7 @@ class SimpleStore(AbsStore):
             Sampled indexes and the corresponding objects.
         """
         weights = np.asarray(self._store[key][:self._size] if self._size < self._capacity else self._store[key])
+        weights = weights + np.abs(np.min(weights))
         indexes = np.random.choice(self._size, size=size, replace=replace, p=weights / np.sum(weights))
         return indexes, self.get(indexes)
 

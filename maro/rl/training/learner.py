@@ -125,23 +125,18 @@ class OffPolicyLearner(AbsLearner):
             )
             self.logger.info(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
             print(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
-            print(f'Single Source: {isinstance(self.actor, Actor)} Single Agent: {isinstance(self.agent, AbsAgent)}')
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
                 exp,
                 is_single_source=isinstance(self.actor, Actor),
                 is_single_agent=isinstance(self.agent, AbsAgent)
             )
-            print(f'Type of exp: {type(exp)}')
-            print(f'Length of exp: {len(exp)}')
-            print(f'Length of exp: {len(exp["A"])}')
             if isinstance(self.agent, AbsAgent):
                 exp.update({"loss": [MAX_LOSS] * len(list(exp.values())[0])})
                 self.experience_pool.put(exp)
                 for i in range(self.train_iter):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
-                    print(f'Returned loss to experience pool: {loss}')
                     self.experience_pool.update(idx, {"loss": list(loss)})
             else:
                 for agent_id, ex in exp.items():
@@ -159,10 +154,6 @@ class OffPolicyLearner(AbsLearner):
 
 
             self.logger.info("Agent learning finished")
-        print(f'Saving model to: {self.log_dir}')
-        self.agent.dump_model_to_file(self.log_dir)
-
-        # Signal remote actors to quit
         if isinstance(self.actor, ActorProxy):
             self.actor.terminate()
 

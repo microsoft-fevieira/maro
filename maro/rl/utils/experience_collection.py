@@ -21,7 +21,6 @@ class ExperienceCollectionUtils:
         Returns:
             Concatenated experiences for each agent.
         """
-        print('Merging experience')
         # print(exp.keys())
         if is_single_source:
             return exp
@@ -37,8 +36,6 @@ class ExperienceCollectionUtils:
                     for k, v in e.items():
                         merged[agent_id][k].extend(v)
         # print(merged)
-        print(merged.keys())
-        print(merged['A'])
         return merged
 
     @staticmethod

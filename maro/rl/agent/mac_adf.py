@@ -95,11 +95,11 @@ class MeanActorCritic_ADF(AbsAgent):
                 mod[index] = self._apply_model(state, task_name="actor", training=True) * self._get_q_values(state, task_name="critic", training=False).detach()
             index += 1
         actor_loss = mod.mean()
-        
+        batch_loss = torch.abs(q_estimates - return_est) + self.config.actor_loss_coefficient * mod
         loss = critic_loss + self.config.actor_loss_coefficient * actor_loss
         self.model.step(loss) # takes a step w/r/t the loss
 
-        return loss.detach()
+        return batch_loss.detach()
 
 
 

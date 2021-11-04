@@ -99,13 +99,15 @@ class ActorCritic_ADF(AbsAgent):
                 clip_ratio = torch.clamp(ratio, 1 - self.config.clip_ratio, 1 + self.config.clip_ratio)
                 actor_loss = -(torch.div(new_prob, old_probabilities+self.eps)*torch.min(ratio * advantages, clip_ratio * advantages) + self.lam * entropy).mean()
             else:
-                actor_loss = -(torch.div(new_prob, old_probabilities+self.eps)*log_p_new * advantages + self.lam * entropy).mean()
+                actor_loss = -(torch.div(new_prob, old_probabilities+self.eps)*log_p_new * advantages + self.lam * entropy)
 
             # critic_loss
             state_values = self._get_state_values(states, training=True)  # Gets V^\pi(s) estimates for the states in the batch
             critic_loss = self.config.critic_loss_func(state_values, return_est) # fits to the return estimates
-            loss = critic_loss + self.config.actor_loss_coefficient * actor_loss
+            batch_loss = torch.abs(state_values - return_est) + self.config.actor_loss_coefficient*actor_loss
+            loss = critic_loss + self.config.actor_loss_coefficient * actor_loss.mean()
             self.model.step(loss)
+        return batch_loss.detach()
 
     def _apply_model(self, state, task_name = "actor", training = False): # Calculates action probabilities for the actor
         num_actions = len(state)

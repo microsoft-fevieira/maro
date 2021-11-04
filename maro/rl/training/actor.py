@@ -147,8 +147,6 @@ class Actor(object):
                     model_by_agent=msg.payload[PayloadKey.MODEL],
                     exploration_params=msg.payload[PayloadKey.EXPLORATION_PARAMS]
                 )
-
-                print(f'Got rollout_data of type: {type(rollout_data)}')
                 if rollout_data is None:
                     logger.info(f"Roll-out {ep} aborted")
                 else:
