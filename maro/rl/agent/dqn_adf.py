@@ -31,7 +31,6 @@ class DQN_ADF(AbsAgent):
         super().__init__(model, config)
         self._training_counter = 0
         self._target_model = model.copy() if model.trainable else None
-        print(f'################ Update Frequency: {self.config.target_update_freq} ########################')
     
     def choose_action(self, state) -> Union[int, np.ndarray]:
         q_estimates = self._apply_model(state, is_eval=True, training=False).cpu().numpy()
