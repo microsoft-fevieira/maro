@@ -107,7 +107,7 @@ class ActorCritic_ADF(AbsAgent):
             batch_loss = torch.abs(state_values - return_est) + self.config.actor_loss_coefficient*actor_loss
             loss = critic_loss + self.config.actor_loss_coefficient * actor_loss.mean()
             self.model.step(loss)
-        return batch_loss.detach()
+        return batch_loss.detach().numpy()
 
     def _apply_model(self, state, task_name = "actor", training = False): # Calculates action probabilities for the actor
         num_actions = len(state)

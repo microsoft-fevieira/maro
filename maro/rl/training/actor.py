@@ -37,44 +37,6 @@ class Actor(object):
         self.trajectory = trajectory_cls(self.env, **trajectory_kwargs)
 
 
-
-    # def roll_out(self, index: int, training: bool = True, model_by_agent: dict = None, exploration_params=None):
-    #     """Perform one episode of roll-out.
-    #     Args:
-    #         index (int): Externally designated index to identify the roll-out round.
-    #         training (bool): If true, the roll-out is for training purposes, which usually means
-    #             some kind of training data, e.g., experiences, needs to be collected. Defaults to True.
-    #         model_by_agent (dict): Models to use for inference. Defaults to None.
-    #         exploration_params: Exploration parameters to use for the current roll-out. Defaults to None.
-    #     Returns:
-    #         Data collected during the episode.
-    #     """
-    #     self.env.reset()
-    #     self.trajectory.reset()
-    #     if model_by_agent:
-    #         self.agent.load_model(model_by_agent)
-    #     if exploration_params:
-    #         self.agent.set_exploration_params(exploration_params)
-
-    #     _, event, is_done = self.env.step(None)
-    #     print('starting roll out')
-    #     # Swaps to using the actions selected by the algorithm and adds the observed (s,a,r,s') tuples to the
-    #     # experience buffer
-    #     while not is_done:
-    #         state_by_agent = self.trajectory.get_state(event)
-    #         action_by_agent = self.agent.choose_action(state_by_agent)
-    #         env_action = self.trajectory.get_action(action_by_agent, event)
-    #         if len(env_action) == 1:
-    #             env_action = list(env_action.values())[0]
-    #         _, next_event, is_done = self.env.step(env_action)
-    #         reward = self.trajectory.get_reward()
-    #         self.trajectory.on_env_feedback(
-    #             event, state_by_agent, action_by_agent, reward if reward is not None else self.env.metrics
-    #         )
-    #         event = next_event
-    #     print('finished roll out')
-    #     return self.env.metrics, self.trajectory.on_finish() if training else None
-
     def roll_out(self, index: int, training: bool = True, model_by_agent: dict = None, exploration_params=None):
         """Perform one episode of roll-out.
         Args:
@@ -117,7 +79,14 @@ class Actor(object):
             )
             event = next_event
         if DEBUG: print(f'Finished roll out with actor of length {self.trajectory.roll_length}')
-        return self.env.metrics, self.trajectory.on_finish() if training else None
+
+        if training:
+            exp, total_reward = self.trajectory.on_finish()
+            returned_metrics = self.env.metrics.copy()
+            returned_metrics['total_custom_reward'] = total_reward
+            return returned_metrics, exp
+        else:
+            return None
 
     def as_worker(self, group: str, proxy_options=None, log_dir: str = getcwd()):
         """Executes an event loop where roll-outs are performed on demand from a remote learner.
@@ -140,7 +109,7 @@ class Actor(object):
             elif msg.tag == MessageTag.ROLLOUT:
                 ep = msg.payload[PayloadKey.ROLLOUT_INDEX]
                 logger.info(f"Rolling out ({ep})...")
-                print(f'Roll out: episode {ep} training: {msg.payload[PayloadKey.TRAINING]}')
+                if DEBUG: print(f'Roll out: episode {ep} training: {msg.payload[PayloadKey.TRAINING]}')
                 metrics, rollout_data = self.roll_out(
                     ep,
                     training=msg.payload[PayloadKey.TRAINING],

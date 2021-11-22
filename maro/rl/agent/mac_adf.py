@@ -99,7 +99,7 @@ class MeanActorCritic_ADF(AbsAgent):
         loss = critic_loss + self.config.actor_loss_coefficient * actor_loss
         self.model.step(loss) # takes a step w/r/t the loss
 
-        return batch_loss.detach()
+        return batch_loss.detach().numpy()
 
 
 

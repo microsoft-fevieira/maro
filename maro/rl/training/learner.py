@@ -5,17 +5,21 @@ from abc import ABC, abstractmethod
 from os import getcwd
 from typing import Union
 
+
+
 from numpy import asarray
+import pandas as pd
+import numpy as np
 
 from maro.rl.agent import AbsAgent, MultiAgentWrapper
 from maro.rl.scheduling import Scheduler
 from maro.rl.storage import SimpleStore
 from maro.rl.utils import ExperienceCollectionUtils
 from maro.utils import Logger
-
+from guidedrl.azureml_connector.common import AMLLogger
 from .actor import Actor
 from .actor_proxy import ActorProxy
-
+from guidedrl.vm_scheduling.rl.common import mean_confidence_interval
 
 class AbsLearner(ABC):
     """Learner class.
@@ -27,6 +31,7 @@ class AbsLearner(ABC):
         agent (Union[AbsAgent, MultiAgentWrapper]): Learning agents. If None, the actor must be an ``Actor`` that
             contains actual agents, rather than an ``ActorProxy``. Defaults to None.
     """
+
     def __init__(
         self,
         actor: Union[Actor, ActorProxy],
@@ -42,6 +47,8 @@ class AbsLearner(ABC):
             self.agent = actor.agent
         self.actor = actor
         self.logger = Logger("LEARNER", dump_folder=log_dir)
+
+
 
     @abstractmethod
     def run(self):
@@ -114,6 +121,7 @@ class OffPolicyLearner(AbsLearner):
         self.batch_size = batch_size
         self.log_dir = log_dir
         self.prioritized_sampling_by_loss = prioritized_sampling_by_loss
+        self.aml_logger = AMLLogger()
 
     def run(self):
         for exploration_params in self.scheduler:
@@ -124,7 +132,17 @@ class OffPolicyLearner(AbsLearner):
                 exploration_params=exploration_params
             )
             self.logger.info(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
-            print(f"ep-{rollout_index}: {env_metrics} ({exploration_params})")
+            if isinstance(self.actor, ActorProxy):
+                df = pd.DataFrame.from_records(env_metrics)
+                df = df.transpose()
+                vals = df['total_custom_reward']
+                mean, low, high = mean_confidence_interval(vals)
+                to_log = mean
+                print(f"ep-{rollout_index}: low: {low} mean: {mean} high: {high} ({exploration_params})")
+            else:
+                to_log = env_metrics['total_custom_reward']
+                print(f"ep-{rollout_index}: {env_metrics['total_custom_reward']} ({exploration_params})")
+            self.aml_logger.log_metric('total episode reward', to_log)
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
                 exp,
@@ -138,6 +156,7 @@ class OffPolicyLearner(AbsLearner):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
                     self.experience_pool.update(idx, {"loss": list(loss)})
+                    self.aml_logger.log_metric('loss', np.mean(loss))
             else:
                 for agent_id, ex in exp.items():
                     # ensure new experiences are sampled with the highest priority
@@ -151,6 +170,7 @@ class OffPolicyLearner(AbsLearner):
                     }
                     for agent_id, loss in loss_by_agent.items():
                         self.experience_pool[agent_id].update(idx_by_agent[agent_id], {"loss": list(loss)})
+
 
 
             self.logger.info("Agent learning finished")
