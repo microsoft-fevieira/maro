@@ -46,7 +46,7 @@ class ActorCriticConfig:
         clip_ratio: float = None
     ):
         self.reward_discount = reward_discount
-        self.critic_loss_func = critic_loss_func
+        self.critic_loss_func = critic_loss_func(reduction="none")
         self.train_iters = train_iters
         self.actor_loss_coefficient = actor_loss_coefficient
         self.k = k

@@ -69,9 +69,21 @@ class ActorCritic_ADF(AbsAgent):
         return state[action][0], prob
 
     def learn(self, states, orig_actions: np.ndarray, rewards: np.ndarray, next_states):
-
         batch_size = len(rewards)
-        return_est = torch.from_numpy(rewards).to(self.device)
+        # print('### LEARN STEP ###')
+        truncate_return_est = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
+
+        discount_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
+        actual_discount = (self.config.reward_discount**(1 + discount_ticks)) / (1 - self.config.reward_discount)
+        # print(truncate_return_est)
+        print(actual_discount)
+        final_state = rewards[:, 2]
+
+
+        return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
+        # return_est = truncate_return_est
+        # print(return_est)
+        
         # Assumes that the rewards passed are already estimates of trajectory returns
 
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
@@ -97,17 +109,16 @@ class ActorCritic_ADF(AbsAgent):
             if self.config.clip_ratio is not None:
                 ratio = torch.exp(log_p_new - log_p)
                 clip_ratio = torch.clamp(ratio, 1 - self.config.clip_ratio, 1 + self.config.clip_ratio)
-                actor_loss = -(torch.div(new_prob, old_probabilities+self.eps)*torch.min(ratio * advantages, clip_ratio * advantages) + self.lam * entropy).mean()
+                actor_loss = -(torch.div(new_prob, old_probabilities)*torch.min(ratio * advantages, clip_ratio * advantages) + self.lam * entropy).mean()
             else:
-                actor_loss = -(torch.div(new_prob, old_probabilities+self.eps)*log_p_new * advantages + self.lam * entropy)
+                actor_loss = -(torch.div(new_prob, old_probabilities)*log_p_new * advantages + self.lam * entropy)
 
             # critic_loss
             state_values = self._get_state_values(states, training=True)  # Gets V^\pi(s) estimates for the states in the batch
             critic_loss = self.config.critic_loss_func(state_values, return_est) # fits to the return estimates
-            batch_loss = torch.abs(state_values - return_est) + self.config.actor_loss_coefficient*actor_loss
-            loss = critic_loss + self.config.actor_loss_coefficient * actor_loss.mean()
-            self.model.step(loss)
-        return batch_loss.detach().numpy()
+            loss = critic_loss # + self.config.actor_loss_coefficient * actor_loss
+            self.model.step(loss.mean())
+        return loss.detach().numpy()
 
     def _apply_model(self, state, task_name = "actor", training = False): # Calculates action probabilities for the actor
         num_actions = len(state)

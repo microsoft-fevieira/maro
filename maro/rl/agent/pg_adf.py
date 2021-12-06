@@ -29,7 +29,7 @@ class PolicyGradient_ADF(AbsAgent):
     """
     def __init__(self, model: SimpleMultiHeadModel, reward_discount: float, lam: float = 0.0):
         self.lam = lam
-        self.eps = 1e-6
+        self.eps = 1e-8
         super().__init__(model, reward_discount)
 
     def choose_action(self, state) -> Union[int, np.ndarray]:
@@ -79,7 +79,7 @@ class PolicyGradient_ADF(AbsAgent):
         # but assuming that is done in the vm_trajectory
         # returns = get_truncated_cumulative_reward(rewards, self.config)
         returns = torch.from_numpy(rewards).to(self.device)
-
+        # print(f'Returns: {returns}')
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device).detach()
                 # from the tuple containing (action, log_probability) pairs
@@ -97,7 +97,10 @@ class PolicyGradient_ADF(AbsAgent):
                 mod[index] = action_probs[actions[index]] # fill in probability of selected action
                 entropy[index] = Categorical(probs = action_probs).entropy() # calculate entropy
             index += 1
-        loss = -(torch.div(mod, old_probabilities+self.eps)*torch.log(mod+self.eps)*returns + self.lam*entropy) # calculating final loss 
+        # print(f'Current action probabilities: {mod}, old action probabilities: {old_probabilities}')
+        loss = -(torch.div(mod, old_probabilities)*torch.log(mod+self.eps)*returns + self.lam*entropy) # calculating final loss 
+        # loss = -(torch.log(mod + self.eps)*returns + self.lam*entropy)
+        # loss = -(torch.log(mod) * returns)
             # add an entropy regularizer of the softmax (could be good for exploration)
         self.model.step(loss.mean()) # taking gradient step
         return loss.detach().numpy()
