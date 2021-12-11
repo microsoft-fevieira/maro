@@ -74,9 +74,9 @@ class ActorCritic_ADF(AbsAgent):
         truncate_return_est = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
 
         discount_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
-        actual_discount = (self.config.reward_discount**(1 + discount_ticks)) / (1 - self.config.reward_discount)
+        actual_discount = self.config.reward_discount**(1 + discount_ticks)
         # print(truncate_return_est)
-        print(actual_discount)
+        # print(actual_discount)
         final_state = rewards[:, 2]
 
 
@@ -116,7 +116,7 @@ class ActorCritic_ADF(AbsAgent):
             # critic_loss
             state_values = self._get_state_values(states, training=True)  # Gets V^\pi(s) estimates for the states in the batch
             critic_loss = self.config.critic_loss_func(state_values, return_est) # fits to the return estimates
-            loss = critic_loss # + self.config.actor_loss_coefficient * actor_loss
+            loss = critic_loss + self.config.actor_loss_coefficient * actor_loss
             self.model.step(loss.mean())
         return loss.detach().numpy()
 

@@ -83,7 +83,7 @@ class PolicyGradient_ADF(AbsAgent):
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device).detach()
                 # from the tuple containing (action, log_probability) pairs
-        
+        # print(f'Old probabilities: {old_probabilities}')
         # initiating tensor and updating subcomponent
         mod = torch.tensor(np.ones(batch_size))
         entropy = torch.tensor(np.ones(batch_size))
@@ -98,7 +98,8 @@ class PolicyGradient_ADF(AbsAgent):
                 entropy[index] = Categorical(probs = action_probs).entropy() # calculate entropy
             index += 1
         # print(f'Current action probabilities: {mod}, old action probabilities: {old_probabilities}')
-        loss = -(torch.div(mod, old_probabilities)*torch.log(mod+self.eps)*returns + self.lam*entropy) # calculating final loss 
+        loss = -(torch.div(mod, old_probabilities)*torch.log(mod+self.eps)*returns + self.lam*entropy) # calculating final loss
+        # print(f'Division term: {torch.div(mod, old_probabilities)}')
         # loss = -(torch.log(mod + self.eps)*returns + self.lam*entropy)
         # loss = -(torch.log(mod) * returns)
             # add an entropy regularizer of the softmax (could be good for exploration)

@@ -157,7 +157,7 @@ class OffPolicyLearner(AbsLearner):
                     loss = self.agent.learn(*batch)
                     self.experience_pool.update(idx, {"loss": list(loss)})
                     self.aml_logger.log_metric('loss', np.mean(loss))
-                    print(np.mean(loss))
+                    # print(np.mean(loss))
             else:
                 for agent_id, ex in exp.items():
                     # ensure new experiences are sampled with the highest priority

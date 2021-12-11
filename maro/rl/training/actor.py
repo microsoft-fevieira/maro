@@ -12,7 +12,7 @@ from maro.utils import Logger
 import numpy as np
 
 from .message_enums import MessageTag, PayloadKey
-DEBUG = True
+DEBUG = False
 
 class Actor(object):
     """Actor class that performs roll-out tasks.
@@ -58,9 +58,9 @@ class Actor(object):
         _, event, is_done = self.env.step(None)
 
 
-        # self.trajectory.roll_start = np.random.randint(288, (8638/2 - 288))
-        self.trajectory.roll_start = 883
-        self.trajectory.roll_length = 3
+        self.trajectory.roll_start = np.random.randint(288, (8638/2 - 288))
+        # self.trajectory.roll_start = 883
+        # self.trajectory.roll_length = 3
         if DEBUG: print(f'Rolling in with actor to: {self.trajectory.roll_start}')
         # # Steps through with the benchmark agent until the given roll start tick
         while event.frame_index < self.trajectory.roll_start:
