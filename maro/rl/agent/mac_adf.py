@@ -69,17 +69,14 @@ class MeanActorCritic_ADF(AbsAgent):
     def learn(self, states, orig_actions: np.ndarray, rewards: np.ndarray, next_states):
 
         batch_size = len(rewards)
-        
         truncate_return_est = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
         discount_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
         actual_discount = (self.config.reward_discount**(1 + discount_ticks)) / (1 - self.config.reward_discount)
         final_state = rewards[:, 2]
         return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
 
-
-        return_est = torch.from_numpy(rewards).to(self.device)
-            # Note assumes the rewards passed from the trajectory already take into account cumulative discounted
-            # reward vs one step
+        # Note assumes the rewards passed from the trajectory already take into account cumulative discounted
+        # reward vs one step
 
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device)
