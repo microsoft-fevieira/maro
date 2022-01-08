@@ -21,6 +21,8 @@ from .actor import Actor
 from .actor_proxy import ActorProxy
 from guidedrl.vm_scheduling.rl.common import mean_confidence_interval
 
+DEBUG = True
+
 class AbsLearner(ABC):
     """Learner class.
 
@@ -122,6 +124,10 @@ class OffPolicyLearner(AbsLearner):
         self.log_dir = log_dir
         self.prioritized_sampling_by_loss = prioritized_sampling_by_loss
         self.aml_logger = AMLLogger()
+        self.ep_reward_index = 0
+        self.loss_index = 0
+        self.ep_reward_mod = 2
+        self.loss_mod = 20
 
     def run(self):
         for exploration_params in self.scheduler:
@@ -142,7 +148,8 @@ class OffPolicyLearner(AbsLearner):
             else:
                 to_log = env_metrics['total_custom_reward']
                 print(f"ep-{rollout_index}: {env_metrics['total_custom_reward']} ({exploration_params})")
-            self.aml_logger.log_metric('total episode reward', to_log)
+            if self.ep_reward_index % self.ep_reward_mod == 0: self.aml_logger.log_metric('total episode reward', to_log)
+            self.ep_reward_index += 1
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
                 exp,
@@ -156,8 +163,9 @@ class OffPolicyLearner(AbsLearner):
                     batch, idx = self.get_batch()
                     loss = self.agent.learn(*batch)
                     self.experience_pool.update(idx, {"loss": list(loss)})
-                    self.aml_logger.log_metric('loss', np.mean(loss))
-                    # print(np.mean(loss))
+                    if self.loss_index % self.loss_mod == 0: self.aml_logger.log_metric('loss', np.mean(loss))
+                    self.loss_index += 1
+                    if DEBUG: print(np.mean(loss))
             else:
                 for agent_id, ex in exp.items():
                     # ensure new experiences are sampled with the highest priority

@@ -69,62 +69,81 @@ class MeanActorCritic_ADF(AbsAgent):
     def learn(self, states, orig_actions: np.ndarray, rewards: np.ndarray, next_states):
 
         batch_size = len(rewards)
-        truncate_return_est = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
-        discount_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
-        actual_discount = (self.config.reward_discount**(1 + discount_ticks)) / (1 - self.config.reward_discount)
-        final_state = rewards[:, 2]
-        return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
 
-        # Note assumes the rewards passed from the trajectory already take into account cumulative discounted
-        # reward vs one step
+        truncate_return_est = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
+
+        discount_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
+        actual_discount = self.config.reward_discount**(1 + discount_ticks)
+        final_state = rewards[:, 2]
+
+
+        # return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
+        return_est = truncate_return_est.detach()
+
+
+        # print(f'Discounted Returns: {truncate_return_est}')
+        # print(f'Ticks: {discount_ticks}')
+        # print(f'Discount Exponent: {self.config.reward_discount**(1 + discount_ticks)}')
+        # print(f'Return Est: {return_est}')
 
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device)
 
         # Calculating critic loss
-        q_estimates = self._get_selected_q_values(states, actions, training=True)
-
+        # q_estimates = self._get_selected_q_values(states, actions, training=True)
+        q_estimates = self._get_state_values(states, training=True)
+        # print(f'Q Estimates: {q_estimates}')
         critic_loss = self.config.critic_loss_func(q_estimates, return_est)
 
 
         # Calculating actor loss
-        mod = torch.empty(batch_size)
-        index = 0
+        # mod = torch.empty(batch_size)
+        # index = 0
 
-        for state in states:
-            if len(state) > 1: # Takes dot product between probability and q values for each state
-                mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=True), 
-                            self._get_q_values(state, task_name="critic", training=False).detach())
-            else:
-                mod[index] = self._apply_model(state, task_name="actor", training=True) * self._get_q_values(state, task_name="critic", training=False).detach()
-            index += 1
-        loss = critic_loss + self.config.actor_loss_coefficient * mod
+
+
+
+
+
+        # for state in states: # <Q^\theta(s,a).detach(), \pi^\theta(s,a)>
+        #     if len(state) > 1: # Takes dot product between probability and q values for each state
+        #         mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=True), 
+        #                     self._get_q_values(state, task_name="critic", training=False).detach())
+        #     else:
+        #         mod[index] = self._apply_model(state, task_name="actor", training=True) * self._get_q_values(state, task_name="critic", training=False).detach()
+        #     index += 1
+
+
+        loss = critic_loss # + self.config.actor_loss_coefficient * mod
         self.model.step(loss.mean()) # takes a step w/r/t the loss
-
         return loss.detach().numpy()
 
 
-
+    # Softmax probabilities used for the pi^\theta(a | s) values
+    # single state
     def _apply_model(self, state, task_name = "actor", training = False): # applies model to get probabilities via softmax
         num_actions = len(state)
         batched_state = np.stack([state_features for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         model_estimates = self.model(tensor_state, task_name = task_name, training = training)
-        model_estimates = torch.transpose(torch.softmax(model_estimates, dim=0),0,1)
+        model_estimates = torch.transpose(torch.softmax(model_estimates, dim=0),0,1) # apply final softmax layer to get probabilities
         return model_estimates.squeeze()
 
+    # Gets Q(s,a) values for each available action in a single state s from the critic network
     def _get_q_values(self, state, task_name = 'critic', training=False): # gets the q values from the critic
         num_actions = len(state)
         batched_state = np.stack([state_features for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         return self.model(tensor_state, task_name = task_name, training=training).squeeze()
 
+    # Q(s,a) for multiple states, unfolded into a very long vector
     def _batched_apply_model(self, states, task_name = 'critic', training = False): # gets the batched q value from the critic
         batched_state = np.stack([state_features for state in states for _, state_features in state])
         tensor_state = torch.from_numpy(batched_state.astype(np.float32)).to(self.device)
         model_estimates = self.model(tensor_state, task_name = task_name, training=training)
         return model_estimates.squeeze(1)
 
+    # Gets Q(s, a_selected) for multiple states in the batch
     def _get_selected_q_values(self, states, actions, training=False):
         batch_size = len(states)
         state_action_estimates = self._batched_apply_model(states, task_name="critic", training=training)
@@ -135,21 +154,19 @@ class MeanActorCritic_ADF(AbsAgent):
 
         return state_action_estimates[torch.from_numpy(state_offsets).to(self.device) + actions]       
 
+    # Returns a vector of V^\pi(s) for each state in states via <Q^\pi(s,a), \pi(s,a)>
     def _get_state_values(self, states, training=False):
         # Uses the critic network to get Q^\pi(s,a) values and uses the actor to get \pi(a | s) values
         # and uses these in order to get an estimate of V^\pi(s).
-
         batch_size = len(states)
-        model_estimates = self._batched_apply_model(states, task_name = "actor", training=training).detach()
-        state_action_estimates = self._batched_apply_model(states, task_name="critic", training=training)
-        # apply the model to get the last-layer for all (s,a) pairs in the batch
-        
         mod = torch.empty(batch_size)
-        start_idx = 0
         index = 0
         for state in states:
-            end_idx = start_idx + len(state)
-            mod[index] = torch.dot(torch.softmax(model_estimates[start_idx:end_idx], dim=0), state_action_estimates[start_idx:end_idx])
+            if len(state) > 1:
+                mod[index] = torch.mean(self._get_q_values(state, task_name='critic', training=training))
+                # mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=False).detach(), self._get_q_values(state, task_name='critic', training=training))
+            else:
+                mod[index] = self._get_q_values(state, task_name='critic', training=training)
+                # mod[index] = self._apply_model(state, task_name="actor", training=False).detach() * self._get_q_values(state, task_name='critic', training=training)
             index += 1
-            start_idx = end_idx
         return mod
