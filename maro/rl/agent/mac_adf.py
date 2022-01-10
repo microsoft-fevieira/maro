@@ -77,11 +77,14 @@ class MeanActorCritic_ADF(AbsAgent):
         final_state = rewards[:, 2]
 
 
-        # return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
-        return_est = truncate_return_est.detach()
+        return_est = (truncate_return_est +  actual_discount * self._get_state_values(final_state)).detach()
 
 
-        # print(f'Discounted Returns: {truncate_return_est}')
+
+        # return_est = truncate_return_est.detach()
+
+
+        # print(f'Target Returns Values: {return_est}')
         # print(f'Ticks: {discount_ticks}')
         # print(f'Discount Exponent: {self.config.reward_discount**(1 + discount_ticks)}')
         # print(f'Return Est: {return_est}')
@@ -97,24 +100,21 @@ class MeanActorCritic_ADF(AbsAgent):
 
 
         # Calculating actor loss
-        # mod = torch.empty(batch_size)
-        # index = 0
+        mod = torch.empty(batch_size)
+        index = 0
 
 
 
+        for state in states: # <Q^\theta(s,a).detach(), \pi^\theta(s,a)>
+            if len(state) > 1: # Takes dot product between probability and q values for each state
+                mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=True), 
+                            self._get_q_values(state, task_name="critic", training=False).detach())
+            else:
+                mod[index] = self._apply_model(state, task_name="actor", training=True) * self._get_q_values(state, task_name="critic", training=False).detach()
+            index += 1
 
 
-
-        # for state in states: # <Q^\theta(s,a).detach(), \pi^\theta(s,a)>
-        #     if len(state) > 1: # Takes dot product between probability and q values for each state
-        #         mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=True), 
-        #                     self._get_q_values(state, task_name="critic", training=False).detach())
-        #     else:
-        #         mod[index] = self._apply_model(state, task_name="actor", training=True) * self._get_q_values(state, task_name="critic", training=False).detach()
-        #     index += 1
-
-
-        loss = critic_loss # + self.config.actor_loss_coefficient * mod
+        loss = critic_loss + self.config.actor_loss_coefficient * mod
         self.model.step(loss.mean()) # takes a step w/r/t the loss
         return loss.detach().numpy()
 
@@ -163,10 +163,10 @@ class MeanActorCritic_ADF(AbsAgent):
         index = 0
         for state in states:
             if len(state) > 1:
-                mod[index] = torch.mean(self._get_q_values(state, task_name='critic', training=training))
-                # mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=False).detach(), self._get_q_values(state, task_name='critic', training=training))
+                # mod[index] = torch.mean(self._get_q_values(state, task_name='critic', training=training))
+                mod[index] = torch.dot(self._apply_model(state, task_name="actor", training=False).detach(), self._get_q_values(state, task_name='critic', training=training))
             else:
-                mod[index] = self._get_q_values(state, task_name='critic', training=training)
-                # mod[index] = self._apply_model(state, task_name="actor", training=False).detach() * self._get_q_values(state, task_name='critic', training=training)
+                # mod[index] = self._get_q_values(state, task_name='critic', training=training).squeeze()
+                mod[index] = self._apply_model(state, task_name="actor", training=False).detach() * self._get_q_values(state, task_name='critic', training=training)
             index += 1
         return mod

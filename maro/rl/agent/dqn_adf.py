@@ -60,6 +60,12 @@ class DQN_ADF(AbsAgent):
 
         # target_q_values = ((self.config.reward_discount**discount_exponent) * next_q_values + rewards).detach()
         target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
+        # print(f'Target Values: {target_q_values}')
+        # print(f'Current Q Values: {current_q_values}')
+        print(f'Min reward: {torch.min(rewards)}, Min Target: {torch.min(target_q_values)}, Min Q Estimate: {torch.min(current_q_values)}')
+        print(f'Max reward: {torch.max(rewards)}, Max Target: {torch.max(target_q_values)}, Max Q Estimate: {torch.max(current_q_values)}')
+        # print(f'Rewards: {rewards}')
+        # print(f'Discount: {self.config.reward_discount}')
         # print(f'Max difference: {torch.max(torch.abs(current_q_values - target_q_values))}')
         # print(f'Min difference: {torch.min(torch.abs(current_q_values - target_q_values))}')
         
@@ -69,11 +75,12 @@ class DQN_ADF(AbsAgent):
         # Compute the TD errors and take a step on the loss
         old_ticks = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
         next_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
-
+        
         
         rewards = torch.from_numpy(rewards[:, 2].astype(np.float32)).to(self.device)
         # print(f'Max reward: {torch.max(rewards)}')
         # print(f'Min reward: {torch.min(rewards)}')
+        # print(f'Rewards: {rewards}')
         discount_exponent = next_ticks - old_ticks
         loss = self._compute_td_errors(states, actions, rewards, next_states, discount_exponent)
         self.model.step(loss.mean())

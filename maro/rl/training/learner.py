@@ -21,7 +21,7 @@ from .actor import Actor
 from .actor_proxy import ActorProxy
 from guidedrl.vm_scheduling.rl.common import mean_confidence_interval
 
-DEBUG = True
+DEBUG = False
 
 class AbsLearner(ABC):
     """Learner class.
@@ -126,8 +126,8 @@ class OffPolicyLearner(AbsLearner):
         self.aml_logger = AMLLogger()
         self.ep_reward_index = 0
         self.loss_index = 0
-        self.ep_reward_mod = 2
-        self.loss_mod = 20
+        self.ep_reward_mod = 1
+        self.loss_mod = 1
 
     def run(self):
         for exploration_params in self.scheduler:
