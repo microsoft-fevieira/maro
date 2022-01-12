@@ -126,8 +126,8 @@ class OffPolicyLearner(AbsLearner):
         self.aml_logger = AMLLogger()
         self.ep_reward_index = 0
         self.loss_index = 0
-        self.ep_reward_mod = 1
-        self.loss_mod = 1
+        self.ep_reward_mod = 2
+        self.loss_mod = 100
 
     def run(self):
         for exploration_params in self.scheduler:

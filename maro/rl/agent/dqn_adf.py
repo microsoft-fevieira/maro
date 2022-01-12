@@ -21,6 +21,7 @@ class DQN_ADF(AbsAgent):
         model (SimpleMultiHeadModel): Q-value model that takes a state-action pair and returns a number.
         config: Configuration for DQN_ADF algorithm.
     """
+
     def __init__(self, model: SimpleMultiHeadModel, config: DQNConfig):
         if (config.advantage_type is not None and
                 (model.task_names is None or set(model.task_names) != {"state_value", "advantage"})):
@@ -45,7 +46,7 @@ class DQN_ADF(AbsAgent):
         return state[greedy_action][0] if np.random.random() > self.config.epsilon \
             else state[np.random.choice(num_actions)][0]
 
-    def _compute_td_errors(self, states, actions, rewards, next_states, discount_exponent):
+    def _compute_td_errors(self, states, actions, rewards, next_states):
         # Compute the one step TD errors for a given (s,a,r,s') tuple
 
         current_q_values_for_all_actions = self._batched_apply_model(states, is_eval=True, training=True)
@@ -58,36 +59,21 @@ class DQN_ADF(AbsAgent):
         next_q_values = self._get_next_q_values(next_states)  # (N,)
         # Get the next Q values for the next_states
 
-        # target_q_values = ((self.config.reward_discount**discount_exponent) * next_q_values + rewards).detach()
         target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
-        # print(f'Target Values: {target_q_values}')
-        # print(f'Current Q Values: {current_q_values}')
-        print(f'Min reward: {torch.min(rewards)}, Min Target: {torch.min(target_q_values)}, Min Q Estimate: {torch.min(current_q_values)}')
-        print(f'Max reward: {torch.max(rewards)}, Max Target: {torch.max(target_q_values)}, Max Q Estimate: {torch.max(current_q_values)}')
-        # print(f'Rewards: {rewards}')
-        # print(f'Discount: {self.config.reward_discount}')
-        # print(f'Max difference: {torch.max(torch.abs(current_q_values - target_q_values))}')
-        # print(f'Min difference: {torch.min(torch.abs(current_q_values - target_q_values))}')
-        
+
         return self.config.loss_func(current_q_values, target_q_values)
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
         # Compute the TD errors and take a step on the loss
-        old_ticks = torch.from_numpy(rewards[:, 0].astype(np.float32)).to(self.device)
-        next_ticks = torch.from_numpy(rewards[:, 1].astype(np.float32)).to(self.device)
         
         
         rewards = torch.from_numpy(rewards[:, 2].astype(np.float32)).to(self.device)
-        # print(f'Max reward: {torch.max(rewards)}')
-        # print(f'Min reward: {torch.min(rewards)}')
-        # print(f'Rewards: {rewards}')
-        discount_exponent = next_ticks - old_ticks
-        loss = self._compute_td_errors(states, actions, rewards, next_states, discount_exponent)
+
+        loss = self._compute_td_errors(states, actions, rewards, next_states)
         self.model.step(loss.mean())
         self._training_counter += 1
         if self._training_counter % self.config.target_update_freq == 0: # Soft updates of the target model
             self._target_model.soft_update(self.model, self.config.tau)
-        # print(f'Final loss: {loss.detach().numpy().mean()}')
         return loss.detach().numpy()
 
     def set_exploration_params(self, epsilon):
