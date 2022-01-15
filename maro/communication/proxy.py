@@ -104,6 +104,8 @@ class Proxy:
         # TODO:In multiprocess with spawn start method, the driver must be initiated before the Redis.
         # Otherwise it will cause Error 9: Bad File Descriptor in proxy.__del__(). Root cause not found.
         # Initialize the driver.
+
+        
         if driver_type == DriverType.ZMQ:
             self._driver = ZmqDriver(
                 component_type=self._component_type, **driver_parameters, logger=self._logger
@@ -158,7 +160,6 @@ class Proxy:
             else:
                 self._logger.error("Unsupported minimal peers type, please use integer or dict.")
                 sys.exit(NON_RESTART_EXIT_CODE)
-
         self._join()
 
     def _signal_handler(self, signum, frame):
@@ -176,6 +177,7 @@ class Proxy:
         self._register_redis()
         self._get_peers_list()
         self._build_connection()
+
         # TODO: Handle slow joiner for PUB/SUB.
         time.sleep(DELAY_FOR_SLOW_JOINER)
 
@@ -225,7 +227,6 @@ class Proxy:
         """To collect all peers' name in the same group (group name) from Redis."""
         if not self._peers_info_dict:
             raise PeersMissError(f"Cannot get {self._name}\'s peers.")
-
         for peer_type in self._peers_info_dict.keys():
             peer_hash_name, peer_number = self._peers_info_dict[peer_type]
             retry_number = 0

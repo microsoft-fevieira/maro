@@ -9,7 +9,7 @@ from maro.utils import Logger
 
 from .message_enums import MessageTag, PayloadKey
 
-DEBUG = False
+DEBUG = True
 class ActorProxy(object):
     """Actor proxy that manages a set of remote actors.
 
