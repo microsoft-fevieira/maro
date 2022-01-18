@@ -24,7 +24,10 @@ class AbsAgent(ABC):
     def __init__(self, model: AbsCoreModel, config):
         self.model = model
         self.config = config
-        self.device = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device) # also new
+        # if torch.cuda.is_available(): self.model.share_memory()
+        # self.device = None
 
     def to_device(self, device):
         self.device = device

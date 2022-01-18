@@ -104,7 +104,7 @@ class MeanActorCritic_ADF(AbsAgent):
 
         loss = critic_loss + self.config.actor_loss_coefficient * mod
         self.model.step(loss.mean()) # takes a step w/r/t the loss
-        return loss.detach().numpy()
+        return loss.detach().cpu().numpy()
 
 
     # Softmax probabilities used for the pi^\theta(a | s) values

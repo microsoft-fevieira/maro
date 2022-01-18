@@ -60,12 +60,10 @@ class DQN_ADF(AbsAgent):
         # Get the next Q values for the next_states
 
         target_q_values = (self.config.reward_discount * next_q_values + rewards).detach()
-
         return self.config.loss_func(current_q_values, target_q_values)
 
     def learn(self, states, actions: np.ndarray, rewards: np.ndarray, next_states):
         # Compute the TD errors and take a step on the loss
-        
         
         rewards = torch.from_numpy(rewards[:, 2].astype(np.float32)).to(self.device)
 
@@ -74,7 +72,7 @@ class DQN_ADF(AbsAgent):
         self._training_counter += 1
         if self._training_counter % self.config.target_update_freq == 0: # Soft updates of the target model
             self._target_model.soft_update(self.model, self.config.tau)
-        return loss.detach().numpy()
+        return loss.detach().cpu().numpy()
 
     def set_exploration_params(self, epsilon):
         if type(epsilon) is dict:
