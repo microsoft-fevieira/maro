@@ -9,6 +9,7 @@ from maro.rl.model import AbsCoreModel
 
 
 class AbsAgent(ABC):
+
     """Abstract RL agent class.
 
     It's a sandbox for the RL algorithm. Scenario-specific details will be excluded.
@@ -21,13 +22,13 @@ class AbsAgent(ABC):
         model (AbsCoreModel): Task model or container of task models required by the algorithm.
         config: Settings for the algorithm.
     """
+
+    
     def __init__(self, model: AbsCoreModel, config):
         self.model = model
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device) # also new
-        # if torch.cuda.is_available(): self.model.share_memory()
-        # self.device = None
+        self.model.to(self.device)
 
     def to_device(self, device):
         self.device = device

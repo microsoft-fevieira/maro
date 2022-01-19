@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from os import getcwd
 from typing import Union
-
+import time
 
 
 from numpy import asarray
@@ -148,7 +148,9 @@ class OffPolicyLearner(AbsLearner):
             else:
                 to_log = env_metrics['total_custom_reward']
                 print(f"ep-{rollout_index}: {env_metrics['total_custom_reward']} ({exploration_params})")
-            if self.ep_reward_index % self.ep_reward_mod == 0: self.aml_logger.log_metric('total episode reward', to_log)
+            if self.ep_reward_index % self.ep_reward_mod == 0: 
+                self.aml_logger.log_metric('total episode reward', to_log)
+                self.aml_logger.log_metric('timestamp', time.time())
             self.ep_reward_index += 1
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
