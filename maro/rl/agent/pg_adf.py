@@ -82,8 +82,6 @@ class PolicyGradient_ADF(AbsAgent):
 
 
         returns = torch.from_numpy(rewards).to(self.device)
-        
-        
         actions = torch.from_numpy(orig_actions[:,0].astype(np.int64)).to(self.device) # extracts actions taken
         old_probabilities = torch.from_numpy(orig_actions[:,1]).to(self.device).detach()
                 # from the tuple containing (action, log_probability) pairs

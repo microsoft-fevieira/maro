@@ -126,7 +126,7 @@ class OffPolicyLearner(AbsLearner):
         self.aml_logger = AMLLogger()
         self.ep_reward_index = 0
         self.loss_index = 0
-        self.ep_reward_mod = 50
+        self.ep_reward_mod = 1
         self.loss_mod = 500
 
     def run(self):
@@ -148,9 +148,11 @@ class OffPolicyLearner(AbsLearner):
             else:
                 to_log = env_metrics['total_custom_reward']
                 print(f"ep-{rollout_index}: {env_metrics['total_custom_reward']} ({exploration_params})")
-            if self.ep_reward_index % self.ep_reward_mod == 0: 
+            if self.ep_reward_index % self.ep_reward_mod == 0:
                 self.aml_logger.log_metric('total episode reward', to_log)
                 self.aml_logger.log_metric('timestamp', time.time())
+                print('Logging model to file')
+                self.agent.dump_model_to_file('./logs/')
             self.ep_reward_index += 1
             # store experiences in the experience pool.
             exp = ExperienceCollectionUtils.concat(
