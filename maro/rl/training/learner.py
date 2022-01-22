@@ -127,7 +127,7 @@ class OffPolicyLearner(AbsLearner):
         self.ep_reward_index = 0
         self.loss_index = 0
         self.ep_reward_mod = 1
-        self.loss_mod = 500
+        self.loss_mod = 250
 
     def run(self):
         for exploration_params in self.scheduler:
